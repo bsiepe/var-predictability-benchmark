@@ -3,3 +3,15 @@
 .RData
 .Ruserdata
 .positai
+
+# Raw data — gitignored (data-sharing agreements)
+data/raw/
+
+# Quarto / knitr
+/.quarto/
+*_files/
+*_cache/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,30 @@
+---
+title: "VAR Predictability Benchmark"
+subtitle: "Robustness Analyses"
+author: 
+ - name: Björn S. Siepe
+   orcid: 0000-0002-9558-4648
+   affiliations: University of Marburg
+date: "`r Sys.Date()`"
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+    code-tools: true
+    code-summary: "Show the code"
+    fig-width: 7
+    fig-height: 4.5
+    fig-align: "center"
+    embed-resources: true
+execute:
+  message: false
+  warning: false
+  eval: true
+---
+
+<!--
+Read-only report. Robustness / sensitivity checks against the primary analysis.
+Reads cached results; reruns are produced by changing cfg and re-fitting via make.
+-->

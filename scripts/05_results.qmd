@@ -1,0 +1,41 @@
+---
+title: "VAR Predictability Benchmark"
+subtitle: "Results"
+author: 
+ - name: Björn S. Siepe
+   orcid: 0000-0002-9558-4648
+   affiliations: University of Marburg
+date: "`r Sys.Date()`"
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+    code-tools: true
+    code-summary: "Show the code"
+    fig-width: 7
+    fig-height: 4.5
+    fig-align: "center"
+    embed-resources: true
+execute:
+  message: false
+  warning: false
+  eval: true
+---
+
+<!--
+Read-only report. Reads cached results from output/results/ and output/meta/
+and never refits. Produces the main tables and figures:
+  - predictability across the complexity ladder (person-level conditional R²)
+  - in-sample vs out-of-sample R² gap (a deliverable in its own right)
+  - meta-regression of moderators on person-level R²
+  - secondary: standardized RMSE
+Figures written to figures/.
+-->
+
+```{r setup}
+#| include: false
+# source("../R/00_functions.R"); source("../R/config.R")
+# TODO: implement.
+```

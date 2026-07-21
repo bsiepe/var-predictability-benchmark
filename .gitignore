@@ -15,3 +15,7 @@ data/raw/
 # OS
 .DS_Store
 Thumbs.db
+
+# vscode
+.vscode/
+.claude/

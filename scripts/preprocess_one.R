@@ -3,9 +3,6 @@
 #
 # Usage: Rscript scripts/preprocess_one.R <dataset_id>
 # Called by the Makefile pattern rule for data/interim/%.rds.
-#
-# IDs starting with "mock" are generated in-memory. Real IDs load a tsv + item
-# metadata from data/raw/<id>/; swap in openesm::get_dataset() when wiring live data.
 
 library(here)
 
@@ -19,13 +16,14 @@ dataset_id <- if (length(args) >= 1) args[[1]] else "mock01"
 if (startsWith(dataset_id, "mock")) {
   mock <- make_mock_openesm(seed = 1)
   df <- mock$data
-  item_meta <- mock$meta
+  features <- mock$meta
 } else {
-  df <- utils::read.delim(file.path("data", "raw", dataset_id, "data.tsv"))
-  item_meta <- utils::read.delim(file.path("data", "raw", dataset_id, "items.tsv"))
+  dataset <- openesm::get_dataset(dataset_id)
+  df <- dataset$data
+  features <- dataset$metadata$features[[1]]
 }
 
-interim <- preprocess_dataset(df, item_meta, cfg, dataset_id = dataset_id)
+interim <- preprocess_dataset(df, features, cfg, dataset_id = dataset_id)
 message(sprintf("preprocessed %s: %d persons kept, %d excluded",
                 dataset_id, length(interim$persons), length(interim$excluded)))
 saveRDS(interim, file.path("data", "interim", paste0(dataset_id, ".rds")))

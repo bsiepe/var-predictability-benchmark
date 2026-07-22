@@ -36,7 +36,7 @@ make_mock_openesm <- function(
       Y[, j] <- pmin(pmax(y, lo), hi)
     }
 
-    day  <- rep(seq_len(p_days), each = beeps_per_day)
+    day <- rep(seq_len(p_days), each = beeps_per_day)
     beep <- rep(seq_len(beeps_per_day), times = p_days)
     df <- data.frame(id = id, beep = beep, day = day, Y, stringsAsFactors = FALSE)
     for (j in items) df[[j]][runif(n_t) < p_missing] <- NA_real_

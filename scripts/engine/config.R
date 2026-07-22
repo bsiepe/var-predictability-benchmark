@@ -10,7 +10,7 @@ cfg <- list(
     lag_order = 1,
     lag_across_night = FALSE,
     lag_across_gaps = FALSE,
-    missing = list(method = "complete_case"),
+    missing = list(method = "none"),
     min_obs_person = 20
   ),
 

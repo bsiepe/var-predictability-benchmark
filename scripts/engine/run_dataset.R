@@ -10,7 +10,7 @@ run_dataset <- function(interim, cfg) {
     if (is.null(model)) stop("unknown model: ", m)
     # compute out-of-sample predictions for all persons in the dataset
     oos <- crossval_model(persons, model, cfg$cv)
-    metrics <- compute_metrics(oos)$person
+    metrics <- compute_metrics(oos)$by_id
     metrics$model <- m
     metrics$label <- model$label
     list(metrics = metrics, oos = cbind(model = m, oos))

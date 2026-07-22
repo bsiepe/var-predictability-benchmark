@@ -4,13 +4,13 @@
 # model definitions
 
 # function to subset modeldata to a given set of indices (e.g. for cross-validation)
-subset_modeldata <- function(md, idx) {
+subset_modeldata <- function(person_data, tps) {
   list(
-    id = md$id,
-    Y = md$Y[idx, , drop = FALSE],
-    Ylag = md$Ylag[idx, , drop = FALSE],
-    time = md$time[idx],
-    valid = md$valid[idx]
+    id = person_data$id,
+    Y = person_data$Y[tps, , drop = FALSE],
+    Ylag = person_data$Ylag[tps, , drop = FALSE],
+    time = person_data$time[tps],
+    valid = person_data$valid[tps]
   )
 }
 

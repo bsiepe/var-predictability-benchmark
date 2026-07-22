@@ -9,20 +9,20 @@
       ss_res = sum((y - yhat)^2),
       ss_tot = sum((y - mean(y))^2),
       n = dplyr::n(),
-      .by = c(person, variable, set)
+      .by = c(id, variable, set)
     )
 }
 
 # Compute R2 and standardized RMSE by person and variable
 compute_metrics <- function(oos_table) {
   pv <- .ss_by_pv(oos_table)
-  person <- pv |>
+  by_id <- pv |>
     dplyr::summarise(ss_res = sum(ss_res), ss_tot = sum(ss_tot), n = sum(n),
-                     .by = c(person, set)) |>
+                     .by = c(id, set)) |>
     dplyr::mutate(
       R2 = 1 - ss_res / ss_tot,
       stdRMSE = sqrt(ss_res / n)
     ) |>
-    dplyr::select(person, set, R2, stdRMSE, n)
-  list(person = person, person_variable = pv)
+    dplyr::select(id, set, R2, stdRMSE, n)
+  list(by_id = by_id, by_id_variable = pv)
 }

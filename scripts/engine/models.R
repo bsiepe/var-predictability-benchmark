@@ -26,13 +26,26 @@ mean_predict <- function(fitted, test) {
          dimnames = dimnames(test$Y))
 }
 
-# Use a linear trend model
+# OLS fit of y ~ intercept + slope * t for a single variable
+.ols_trend <- function(y, t) stats::lm.fit(cbind(1, t), y)$coefficients
+
+# Person-specific linear trend: Y ~ intercept + slope * time
 trend_fit <- function(train, spec) {
-# TODO
+  rows <- train$valid
+  Y <- train$Y[rows, , drop = FALSE]
+  t <- train$time[rows]
+  coefs <- matrix(NA_real_, nrow = 2, ncol = ncol(Y), dimnames = list(NULL, colnames(Y)))
+  for (v in colnames(Y)) coefs[, v] <- .ols_trend(Y[, v], t)
+  list(coefs = coefs)
 }
 
 trend_predict <- function(fitted, test) {
-# TODO
+  a <- fitted$coefs[1, ]
+  b <- fitted$coefs[2, ]
+  Yhat <- matrix(NA_real_, nrow = nrow(test$Y), ncol = ncol(test$Y),
+                 dimnames = dimnames(test$Y))
+  for (v in colnames(Yhat)) Yhat[, v] <- a[v] + b[v] * test$time
+  Yhat
 }
 
 # Use a random-intercept model
@@ -98,5 +111,6 @@ ml_var_predict <- function(fitted, test) {
 #----------- Model registry
 model_registry <- list(
   mean = list(label = "Person mean", level = "person", fit = mean_fit, predict = mean_predict),
+  trend = list(label = "Deterministic trend", level = "person", fit = trend_fit, predict = trend_predict),
   ar = list(label = "AR(1)", level = "person", fit = ar_fit, predict = ar_predict)
 )

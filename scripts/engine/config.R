@@ -3,7 +3,7 @@
 
 cfg <- list(
   seed = 30583,
-  active_models = c("mean", "ar"),
+  active_models = c("mean", "trend", "ar"),
 
   preprocess = list(
     standardize = "range01_scale_limits",

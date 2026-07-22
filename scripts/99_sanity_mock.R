@@ -25,13 +25,16 @@ cat(sprintf("\nPersons kept: %d / %d  (excluded: %s)\n",
             length(interim$persons), length(mock$truth),
             paste(interim$excluded, collapse = ", ")))
 cat(sprintf("Mean phi^2 (ground truth) : %.3f\n", truth_R2))
-cat(sprintf("ar   mean in-sample R2    : %.3f\n", agg("ar", "in")))
-cat(sprintf("ar   mean OOS R2          : %.3f\n", agg("ar", "oos")))
-cat(sprintf("mean mean in-sample R2    : %.3f\n", agg("mean", "in")))
-cat(sprintf("mean mean OOS R2          : %.3f\n", agg("mean", "oos")))
+cat(sprintf("ar    mean in-sample R2   : %.3f\n", agg("ar", "in")))
+cat(sprintf("ar    mean OOS R2         : %.3f\n", agg("ar", "oos")))
+cat(sprintf("trend mean in-sample R2   : %.3f\n", agg("trend", "in")))
+cat(sprintf("trend mean OOS R2         : %.3f\n", agg("trend", "oos")))
+cat(sprintf("mean  mean in-sample R2   : %.3f\n", agg("mean", "in")))
+cat(sprintf("mean  mean OOS R2         : %.3f\n", agg("mean", "oos")))
 
 ok <- abs(agg("ar", "in") - truth_R2) < 0.05 &&
       abs(agg("mean", "in")) < 0.02 &&
-      agg("ar", "oos") > agg("mean", "oos")
+      agg("ar", "oos") > agg("mean", "oos") &&
+      agg("trend", "in") >= agg("mean", "in") - 1e-10
 cat(sprintf("\nSANITY %s\n", if (ok) "PASS" else "FAIL"))
 if (!ok) quit(status = 1)

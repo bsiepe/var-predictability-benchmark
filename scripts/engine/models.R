@@ -48,13 +48,31 @@ trend_predict <- function(fitted, test) {
   Yhat
 }
 
-# Use a random-intercept model
-ri_fit <- function(train, spec) {
-# TODO
+# random-intercept model
+ri_fit <- function(train_persons, spec) {
+  rows <- lapply(train_persons, function(p) {
+    valid <- p$valid
+    data.frame(id = p$id, p$Y[valid, , drop = FALSE], check.names = FALSE)
+  })
+  df <- dplyr::bind_rows(rows)
+  vars <- colnames(train_persons[[1]]$Y)
+  fits <- list()
+  for (v in vars) {
+    fits[[v]] <- lme4::lmer(stats::as.formula(paste0(v, " ~ 1 + (1|id)")), data = df)
+  }
+  list(models = fits)
 }
 
-ri_predict <- function(fitted, test) {
-# TODO
+ri_predict <- function(fitted, test_person) {
+  vars <- names(fitted$models)
+  newdf <- data.frame(id = test_person$id)
+  Yhat <- matrix(NA_real_, nrow = nrow(test_person$Y), ncol = length(vars),
+                 dimnames = dimnames(test_person$Y))
+  for (v in vars) {
+    pred <- predict(fitted$models[[v]], newdata = newdf, allow.new.levels = TRUE)
+    Yhat[, v] <- pred
+  }
+  Yhat
 }
 
 #------------ Autoregressive models
@@ -112,5 +130,6 @@ ml_var_predict <- function(fitted, test) {
 model_registry <- list(
   mean = list(label = "Person mean", level = "person", fit = mean_fit, predict = mean_predict),
   trend = list(label = "Deterministic trend", level = "person", fit = trend_fit, predict = trend_predict),
+  ri = list(label = "Random intercept", level = "dataset", fit = ri_fit, predict = ri_predict),
   ar = list(label = "AR(1)", level = "person", fit = ar_fit, predict = ar_predict)
 )

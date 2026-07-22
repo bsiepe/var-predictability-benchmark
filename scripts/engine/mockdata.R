@@ -1,4 +1,4 @@
-# generates synthetic openESM-format data with known AR(1) coefficients.
+# generates synthetic data matching the openESM format with known AR(1) coefficients.
 # R2 = phi^2 by construction, giving the sanity check an interpretable criterion.
 make_mock_openesm <- function(
   n_persons = 25,
@@ -36,7 +36,7 @@ make_mock_openesm <- function(
       Y[, j] <- pmin(pmax(y, lo), hi)
     }
 
-    day <- rep(seq_len(p_days), each = beeps_per_day)
+    day  <- rep(seq_len(p_days), each = beeps_per_day)
     beep <- rep(seq_len(beeps_per_day), times = p_days)
     df <- data.frame(id = id, beep = beep, day = day, Y, stringsAsFactors = FALSE)
     for (j in items) df[[j]][runif(n_t) < p_missing] <- NA_real_
@@ -44,9 +44,12 @@ make_mock_openesm <- function(
     rows[[id]] <- df
   }
 
+  # meta mirrors the openESM features tibble: name + answer_categories
   list(
-    data = do.call(rbind, rows),
-    meta = data.frame(item = items, scale_min = lo, scale_max = hi, stringsAsFactors = FALSE),
+    data  = do.call(rbind, rows),
+    meta  = data.frame(name = items,
+                       answer_categories = as.character(hi - lo + 1L),
+                       stringsAsFactors = FALSE),
     truth = truth
   )
 }

@@ -74,3 +74,4 @@ r <- cor(blups[shared], true_u[shared])
 cat(sprintf("BLUP-truth correlation: %.4f\n", r))
 stopifnot(r > 0.99)
 cat("BLUP recovery: PASS\n")
+

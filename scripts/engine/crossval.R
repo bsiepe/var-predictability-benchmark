@@ -50,10 +50,48 @@ crossval_person <- function(person_data, model, cv, spec = NULL) {
   dplyr::bind_rows(out)
 }
 
+# Dataset-level CV: model is fit on all persons jointly
+# At each step k, all persons advance by one observation (aligned expanding windows).
+# Persons who exhaust their test origins contribute all valid data at later steps
+# (including former test observations)
+crossval_dataset <- function(persons, model, cv, spec = NULL) {
+  person_folds <- lapply(persons, make_folds, cv = cv)
+  n_steps <- max(vapply(person_folds, length, integer(1)), 0L)
+  all_valid <- lapply(persons, function(p) subset_modeldata(p, which(p$valid)))
+
+  fit <- function(train_persons) model$fit(train_persons, spec)
+
+  # in-sample
+  fitted_in <- fit(all_valid)
+  out <- purrr::map2(persons, all_valid, function(p, valid) {
+    .long_pairs(p$id, "in", model$predict(fitted_in, valid), valid$Y)
+  })
+
+  # OOS: 1 step if refit_per_origin = FALSE, test_window steps otherwise
+  for (k in seq_len(n_steps)) {
+    train_at_k <- purrr::pmap(list(persons, person_folds, all_valid), function(p, folds, valid) {
+      if (k <= length(folds)) subset_modeldata(p, folds[[k]]$train) else valid
+    })
+    fitted_k <- fit(train_at_k)
+    for (i in seq_along(persons)) {
+      folds_i <- person_folds[[i]]
+      if (k <= length(folds_i)) {
+        test <- subset_modeldata(persons[[i]], folds_i[[k]]$test)
+        out[[length(out) + 1L]] <- .long_pairs(persons[[i]]$id, "oos",
+                                                model$predict(fitted_k, test), test$Y)
+      }
+    }
+  }
+  dplyr::bind_rows(out)
+}
+
 # Wrapper to perform cross-validation for a single model across all persons in a dataset
 crossval_model <- function(persons, model, cv, spec = NULL) {
   if (model$level == "person") {
     return(dplyr::bind_rows(lapply(persons, crossval_person, model = model, cv = cv, spec = spec)))
   }
-  stop("level = 'dataset' not implemented in this slice")
+  if (model$level == "dataset") {
+    return(crossval_dataset(persons, model, cv, spec))
+  }
+  stop("unknown model level: ", model$level)
 }

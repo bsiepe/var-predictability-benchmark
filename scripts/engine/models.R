@@ -109,12 +109,19 @@ ml_ar_predict <- function(fitted, test) {
 
 
 #--------------- VAR models
+# Person-specific VAR(1) fit by OLS; coefs is a (p+1) x p matrix
+# (row 1: intercepts, rows 2:(p+1): lagged coefficient matrix Phi)
 var_fit <- function(train, spec) {
-  # TODO
+  rows <- train$valid
+  Y <- train$Y[rows, , drop = FALSE]
+  Yl <- train$Ylag[rows, , drop = FALSE]
+  list(coefs = stats::lm.fit(cbind(1, Yl), Y)$coefficients)
 }
 
 var_predict <- function(fitted, test) {
-  # TODO
+  Yhat <- cbind(1, test$Ylag) %*% fitted$coefs
+  dimnames(Yhat) <- dimnames(test$Y)
+  Yhat
 }
 
 ml_var_fit <- function(train, spec) {
@@ -131,5 +138,6 @@ model_registry <- list(
   mean = list(label = "Person mean", level = "person", fit = mean_fit, predict = mean_predict),
   trend = list(label = "Deterministic trend", level = "person", fit = trend_fit, predict = trend_predict),
   ri = list(label = "Random intercept", level = "dataset", fit = ri_fit, predict = ri_predict),
-  ar = list(label = "AR(1)", level = "person", fit = ar_fit, predict = ar_predict)
+  ar = list(label = "AR(1)", level = "person", fit = ar_fit, predict = ar_predict),
+  var = list(label = "VAR(1)", level = "person", fit = var_fit, predict = var_predict)
 )

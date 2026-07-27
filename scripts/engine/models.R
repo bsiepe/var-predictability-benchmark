@@ -98,13 +98,41 @@ ar_predict <- function(fitted, test) {
 
 
 
-# Multilevel autoregressive model
-ml_ar_fit <- function(train, spec) {
-  # TODO
+# ml AR(1): common AR slope across persons, person-specific intercepts and slopes
+# fitted by lmer with random intercept and random slope on the lagged variable
+ml_ar_fit <- function(train_persons, spec) {
+  # construct a data frame with all valid observations from all persons, including lagged variables
+  rows <- lapply(train_persons, function(p) {
+    valid <- p$valid
+    lag_df <- as.data.frame(p$Ylag[valid, , drop = FALSE])
+    colnames(lag_df) <- paste0(colnames(lag_df), "_lag")
+    cbind(data.frame(id = p$id, p$Y[valid, , drop = FALSE], check.names = FALSE), lag_df)
+  })
+  df <- dplyr::bind_rows(rows)
+  vars <- colnames(train_persons[[1]]$Y)
+  fits <- list()
+  # fit for each variable separately
+  for (v in vars) {
+    lag_v <- paste0(v, "_lag")
+    fits[[v]] <- lme4::lmer(
+      stats::as.formula(paste0("`", v, "` ~ 1 + `", lag_v, "` + (1 + `", lag_v, "` | id)")),
+      data = df
+    )
+  }
+  list(models = fits)
 }
 
-ml_ar_predict <- function(fitted, test) {
-  # TODO
+ml_ar_predict <- function(fitted, test_person) {
+  vars <- names(fitted$models)
+  lag_df <- as.data.frame(test_person$Ylag)
+  colnames(lag_df) <- paste0(vars, "_lag")
+  newdf <- data.frame(id = test_person$id, lag_df, check.names = FALSE)
+  Yhat <- matrix(NA_real_, nrow = nrow(test_person$Y), ncol = length(vars),
+                 dimnames = dimnames(test_person$Y))
+  for (v in vars) {
+    Yhat[, v] <- predict(fitted$models[[v]], newdata = newdf, allow.new.levels = TRUE)
+  }
+  Yhat
 }
 
 
@@ -139,5 +167,6 @@ model_registry <- list(
   trend = list(label = "Deterministic trend", level = "person", fit = trend_fit, predict = trend_predict),
   ri = list(label = "Random intercept", level = "dataset", fit = ri_fit, predict = ri_predict),
   ar = list(label = "AR(1)", level = "person", fit = ar_fit, predict = ar_predict),
-  var = list(label = "VAR(1)", level = "person", fit = var_fit, predict = var_predict)
+  var = list(label = "VAR(1)", level = "person", fit = var_fit, predict = var_predict),
+  ml_ar = list(label = "Multilevel AR(1)", level = "dataset", fit = ml_ar_fit, predict = ml_ar_predict)
 )

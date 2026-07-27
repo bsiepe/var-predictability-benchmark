@@ -33,6 +33,8 @@ cat(sprintf("ri    mean in-sample R2   : %.3f\n", agg("ri", "in")))
 cat(sprintf("ri    mean OOS R2         : %.3f\n", agg("ri", "oos")))
 cat(sprintf("trend mean in-sample R2   : %.3f\n", agg("trend", "in")))
 cat(sprintf("trend mean OOS R2         : %.3f\n", agg("trend", "oos")))
+cat(sprintf("ml_ar mean in-sample R2   : %.3f\n", agg("ml_ar", "in")))
+cat(sprintf("ml_ar mean OOS R2         : %.3f\n", agg("ml_ar", "oos")))
 cat(sprintf("mean  mean in-sample R2   : %.3f\n", agg("mean", "in")))
 cat(sprintf("mean  mean OOS R2         : %.3f\n", agg("mean", "oos")))
 
@@ -42,6 +44,8 @@ ok <- abs(agg("ar", "in") - truth_R2) < 0.05 &&
       agg("trend", "in") >= agg("mean", "in") - 1e-10 &&
       agg("var", "in") >= agg("ar", "in") - 1e-10 &&  # VAR nests AR(1)
       is.finite(agg("var", "oos")) &&
-      is.finite(agg("ri", "in")) && is.finite(agg("ri", "oos"))
+      is.finite(agg("ri", "in")) && is.finite(agg("ri", "oos")) &&
+      is.finite(agg("ml_ar", "in")) && is.finite(agg("ml_ar", "oos")) &&
+      agg("ml_ar", "oos") > agg("mean", "oos")
 cat(sprintf("\nSANITY %s\n", if (ok) "PASS" else "FAIL"))
 if (!ok) quit(status = 1)

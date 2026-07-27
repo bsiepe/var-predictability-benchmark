@@ -36,6 +36,7 @@ build_person <- function(df_p, items, scale_bounds, pp) {
   night_ok <- pp$lag_across_night | same_day
   gap_ok <- pp$lag_across_gaps | consec_beep
   lag_ok <- night_ok & gap_ok
+  lag_ok[is.na(lag_ok)] <- FALSE  # NA day/beep → treat as non-consecutive
 
   # construct lagged Y matrix, with NA for first row and any rows that are not lag_ok
   Ylag <- matrix(NA_real_, nrow = Tn, ncol = ncol(Y), dimnames = dimnames(Y))

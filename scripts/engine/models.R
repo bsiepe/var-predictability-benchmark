@@ -152,21 +152,55 @@ var_predict <- function(fitted, test) {
   Yhat
 }
 
-ml_var_fit <- function(train, spec) {
-  # TODO
+# builds the lmer formula string for one outcome variable in ml_var
+.ml_var_formula <- function(v, lag_vars, re_corr) {
+  sep   <- if (re_corr) " | " else " || "
+  fixed <- paste0("`", lag_vars, "`", collapse = " + ")
+  rand  <- paste0("(1 + ", paste0("`", lag_vars, "`", collapse = " + "), sep, "id)")
+  stats::as.formula(paste0("`", v, "` ~ 1 + ", fixed, " + ", rand))
 }
 
-ml_var_predict <- function(fitted, test) {
-  # TODO
+ml_var_fit <- function(train_persons, spec) {
+  re_corr <- if (!is.null(spec$re_corr)) spec$re_corr else TRUE
+  rows <- lapply(train_persons, function(p) {
+    valid <- p$valid
+    lag_df <- as.data.frame(p$Ylag[valid, , drop = FALSE])
+    colnames(lag_df) <- paste0(colnames(lag_df), "_lag")
+    cbind(data.frame(id = p$id, p$Y[valid, , drop = FALSE], check.names = FALSE), lag_df)
+  })
+  df <- dplyr::bind_rows(rows)
+  # select the variable names and their lagged counterparts
+  vars <- colnames(train_persons[[1]]$Y)
+  lag_vars <- paste0(vars, "_lag")
+  fits <- list()
+  for (v in vars) {
+    fits[[v]] <- lme4::lmer(.ml_var_formula(v, lag_vars, re_corr), data = df)
+  }
+  list(models = fits)
+}
+
+ml_var_predict <- function(fitted, test_person) {
+  vars <- names(fitted$models)
+  # select and order Ylag columns by fitted variable names to guard against permutations
+  lag_df <- as.data.frame(test_person$Ylag[, vars, drop = FALSE])
+  colnames(lag_df) <- paste0(vars, "_lag")
+  newdf <- data.frame(id = test_person$id, lag_df, check.names = FALSE)
+  Yhat <- matrix(NA_real_, nrow = nrow(test_person$Y), ncol = length(vars),
+                 dimnames = dimnames(test_person$Y))
+  for (v in vars) {
+    Yhat[, v] <- predict(fitted$models[[v]], newdata = newdf, allow.new.levels = TRUE)
+  }
+  Yhat
 }
 
 
 #----------- Model registry
 model_registry <- list(
-  mean = list(label = "Person mean", level = "person", fit = mean_fit, predict = mean_predict),
-  trend = list(label = "Deterministic trend", level = "person", fit = trend_fit, predict = trend_predict),
-  ri = list(label = "Random intercept", level = "dataset", fit = ri_fit, predict = ri_predict),
-  ar = list(label = "AR(1)", level = "person", fit = ar_fit, predict = ar_predict),
-  var = list(label = "VAR(1)", level = "person", fit = var_fit, predict = var_predict),
-  ml_ar = list(label = "Multilevel AR(1)", level = "dataset", fit = ml_ar_fit, predict = ml_ar_predict)
+  mean  = list(label = "Person mean", level = "person",  fit = mean_fit, predict = mean_predict),
+  trend = list(label = "Deterministic trend", level = "person",  fit = trend_fit, predict = trend_predict),
+  ri    = list(label = "Random intercept", level = "dataset", fit = ri_fit,  predict = ri_predict),
+  ar    = list(label = "AR(1)",  level = "person",  fit = ar_fit, predict = ar_predict),
+  var   = list(label = "VAR(1)",  level = "person",  fit = var_fit,   predict = var_predict),
+  ml_ar = list(label = "Multilevel AR(1)",  level = "dataset", fit = ml_ar_fit,   predict = ml_ar_predict),
+  ml_var = list(label = "Multilevel VAR(1)",   level = "dataset", fit = ml_var_fit,  predict = ml_var_predict)
 )

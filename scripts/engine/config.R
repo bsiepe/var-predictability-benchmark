@@ -3,7 +3,8 @@
 
 cfg <- list(
   seed = 30583,
-  active_models = c("mean", "trend", "ri", "ar", "var", "ml_ar"),
+  active_models = c("mean", "trend", "ri", "ar", "var", "ml_ar", "ml_var"),
+  ml_var.spec = list(re_corr = TRUE),   # re_corr = FALSE → uncorrelated (||) for robustness
 
   preprocess = list(
     standardize = "range01_scale_limits",

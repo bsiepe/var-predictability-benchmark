@@ -5,6 +5,7 @@
 # Called by the Makefile pattern rule for data/interim/%.rds.
 
 library(here)
+library(readr)
 
 source(here::here("scripts", "engine", "config.R"))
 source(here::here("scripts", "engine", "mockdata.R"))
@@ -31,14 +32,13 @@ if (startsWith(dataset_id, "mock")) {
   df <- dataset$data
   features <- dataset$metadata$features[[1]]
 
-  # filter to selected items from registry (empty items column = use all)
-  registry <- utils::read.csv(here::here("data", "meta", "datasets.csv"),
-                              stringsAsFactors = FALSE,
-                              colClasses = c(dataset_id = "character"))
+  # filter to selected items from registry (empty variables_original column = use all)
+  registry <- readr::read_tsv(here::here("data", "meta", "datasets.tsv"),
+                              col_types = readr::cols(dataset_id = readr::col_character()))
   row <- registry[registry$dataset_id == dataset_id, ]
-  if (nrow(row) == 0) stop("dataset_id '", dataset_id, "' not found in data/meta/datasets.csv")
-  if (nzchar(trimws(row$items))) {
-    selected <- trimws(strsplit(row$items, ",")[[1]])
+  if (nrow(row) == 0) stop("dataset_id '", dataset_id, "' not found in data/meta/datasets.tsv")
+  if (!is.na(row$variables_original) && nzchar(trimws(row$variables_original))) {
+    selected <- trimws(strsplit(row$variables_original, ",")[[1]])
     features <- features[features$name %in% selected, ]
   }
 }

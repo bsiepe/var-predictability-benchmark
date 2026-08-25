@@ -4,20 +4,30 @@
 # Expensive fitting is cached per dataset (output/results/<id>.rds); reports read caches
 # Parallelise across datasets with:  make -j4
 #
-# NOTE: this is still a SKELETON. Targets and variables below sketch the intended graph;
-# needs to be filled once the rest of the pipeline is implemented.
+# Must be run from the project root. The project .Rprofile activates renv.
 
 # ---- Configuration -------------------------------------------------------------
-RSCRIPT      := Rscript
+# Override with `make RSCRIPT=/path/to/Rscript` when Rscript is not on PATH.
+RSCRIPT      ?= Rscript
 
 # Engine files: editing any of these should invalidate downstream results.
 ENGINE_DEPS  := scripts/engine/config.R scripts/engine/preprocess.R \
                 scripts/engine/models.R scripts/engine/crossval.R \
                 scripts/engine/metrics.R scripts/engine/run_dataset.R
-PREP_DEPS    := scripts/engine/config.R scripts/engine/preprocess.R
+# Preprocessing also depends on the modifier script: changing a modifier must
+# trigger a rebuild of interim files
+PREP_DEPS    := scripts/engine/config.R scripts/engine/preprocess.R \
+                scripts/00_read_modify_coding_sheet.R
 
-# dataset IDs are read from data/meta/datasets.csv.
-DATASET_IDS  := $(shell $(RSCRIPT) -e "x <- read.csv('data/meta/datasets.csv'); cat(x[['dataset_id']], sep=' ')")
+# Dataset IDs are read from data/meta/datasets.tsv, filtered to include == "yes",
+# and zero-padded to 4 digits (openESM requires "0001" not "1").
+# "modify"/"unclear"/"no" rows are excluded here; a "modify" dataset enters the
+# pipeline once its modifier is coded and its TSV include field is changed to "yes"
+DATASET_IDS  := $(shell $(RSCRIPT) -e \
+  "x <- utils::read.delim('data/meta/datasets.tsv', stringsAsFactors=FALSE, \
+   colClasses=c(dataset_id='character')); \
+   ids <- x[x[['include']]=='yes', 'dataset_id']; \
+   cat(sprintf('%04d', as.integer(ids)), sep=' ')")
 
 INTERIM      := $(patsubst %,data/interim/%.rds,$(DATASET_IDS))
 RESULTS      := $(patsubst %,output/results/%.rds,$(DATASET_IDS))
@@ -30,7 +40,7 @@ preprocess: $(INTERIM)
 fit: $(RESULTS)
 
 # ---- Pattern rules -------------------------------------------------------------
-data/interim/%.rds: data/meta/datasets.csv $(PREP_DEPS)
+data/interim/%.rds: data/meta/datasets.tsv $(PREP_DEPS)
 	$(RSCRIPT) scripts/preprocess_one.R $*
 
 output/results/%.rds: data/interim/%.rds $(ENGINE_DEPS)
@@ -48,7 +58,7 @@ reports: meta
 
 # ---- Housekeeping --------------------------------------------------------------
 restore:
-	$(RSCRIPT) -e 'renv::restore()'
+	$(RSCRIPT) -e "renv::restore()"
 
 clean:
 	rm -f data/interim/*.rds output/results/*.rds output/meta/*.rds

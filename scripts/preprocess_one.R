@@ -10,6 +10,7 @@ library(readr)
 source(here::here("scripts", "engine", "config.R"))
 source(here::here("scripts", "engine", "mockdata.R"))
 source(here::here("scripts", "engine", "preprocess.R"))
+source(here::here("scripts", "00_read_modify_coding_sheet.R"))
 
 args <- commandArgs(trailingOnly = TRUE)
 dataset_id <- if (length(args) >= 1) args[[1]] else "mock01"
@@ -32,14 +33,32 @@ if (startsWith(dataset_id, "mock")) {
   df <- dataset$data
   features <- dataset$metadata$features[[1]]
 
-  # filter to selected items from registry (empty variables_original column = use all)
+  # apply dataset-specific modifier if one exists (adds derived/aggregated columns)
+  if (!exists("dataset_modifiers"))
+    stop("00_read_modify_coding_sheet.R must define 'dataset_modifiers'")
+  if (dataset_id %in% names(dataset_modifiers)) {
+    result <- dataset_modifiers[[dataset_id]](df, features)
+    if (!is.list(result) || !all(c("df", "features") %in% names(result)))
+      stop("modifier for ", dataset_id, " must return list(df = ..., features = ...)")
+    df <- result$df
+    features <- result$features
+  }
+
+  # filter to selected items from registry; match by integer to be padding-format agnostic
   registry <- readr::read_tsv(here::here("data", "meta", "datasets.tsv"),
                               col_types = readr::cols(dataset_id = readr::col_character()))
-  row <- registry[registry$dataset_id == dataset_id, ]
+  row <- registry[as.integer(registry$dataset_id) == as.integer(dataset_id), ]
   if (nrow(row) == 0) stop("dataset_id '", dataset_id, "' not found in data/meta/datasets.tsv")
   if (!is.na(row$variables_original) && nzchar(trimws(row$variables_original))) {
     selected <- trimws(strsplit(row$variables_original, ",")[[1]])
+    missing_names <- setdiff(selected, features$name)
+    if (length(missing_names) > 0)
+      stop("variables_original references names absent from features for ", dataset_id,
+           ": ", paste(missing_names, collapse = ", "))
     features <- features[features$name %in% selected, ]
+    if (nrow(features) == 0) stop("no features remain after filtering for ", dataset_id)
+    if (anyDuplicated(features$name))
+      stop("duplicate feature names after filtering for ", dataset_id)
   }
 }
 

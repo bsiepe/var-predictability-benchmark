@@ -6,6 +6,7 @@
 
 # Raw data — gitignored (data-sharing agreements)
 data/raw/
+data/interim/
 
 # Quarto / knitr
 /.quarto/
@@ -19,3 +20,4 @@ Thumbs.db
 # vscode
 .vscode/
 .claude/
+

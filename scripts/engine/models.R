@@ -111,15 +111,23 @@ ml_ar_fit <- function(train_persons, spec) {
   df <- dplyr::bind_rows(rows)
   vars <- colnames(train_persons[[1]]$Y)
   fits <- list()
+  warns <- character(0)
   # fit for each variable separately
   for (v in vars) {
     lag_v <- paste0(v, "_lag")
-    fits[[v]] <- lme4::lmer(
-      stats::as.formula(paste0("`", v, "` ~ 1 + `", lag_v, "` + (1 + `", lag_v, "` | id)")),
-      data = df
+    fit_result <- withCallingHandlers(
+      lme4::lmer(
+        stats::as.formula(paste0("`", v, "` ~ 1 + `", lag_v, "` + (1 + `", lag_v, "` | id)")),
+        data = df
+      ),
+      warning = function(w) {
+        warns <<- c(warns, conditionMessage(w))
+        invokeRestart("muffleWarning")
+      }
     )
+    fits[[v]] <- fit_result
   }
-  list(models = fits)
+  list(models = fits, warnings = warns)
 }
 
 ml_ar_predict <- function(fitted, test_person) {
@@ -169,14 +177,21 @@ ml_var_fit <- function(train_persons, spec) {
     cbind(data.frame(id = p$id, p$Y[valid, , drop = FALSE], check.names = FALSE), lag_df)
   })
   df <- dplyr::bind_rows(rows)
-  # select the variable names and their lagged counterparts
   vars <- colnames(train_persons[[1]]$Y)
   lag_vars <- paste0(vars, "_lag")
   fits <- list()
+  warns <- character(0)
   for (v in vars) {
-    fits[[v]] <- lme4::lmer(.ml_var_formula(v, lag_vars, re_corr), data = df)
+    fit_result <- withCallingHandlers(
+      lme4::lmer(.ml_var_formula(v, lag_vars, re_corr), data = df),
+      warning = function(w) {
+        warns <<- c(warns, conditionMessage(w))
+        invokeRestart("muffleWarning")
+      }
+    )
+    fits[[v]] <- fit_result
   }
-  list(models = fits)
+  list(models = fits, warnings = warns)
 }
 
 ml_var_predict <- function(fitted, test_person) {

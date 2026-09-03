@@ -21,3 +21,11 @@ result <- run_dataset(interim, cfg)
 saveRDS(result, file.path("output", "results", paste0(dataset_id, ".rds")))
 message(sprintf("fit %s: %d persons x %d models",
                 dataset_id, result$meta$n_person, length(cfg$active_models)))
+output <- result$output
+for (m in names(output)) {
+  lines <- output[[m]]
+  if (length(lines) > 0) {
+    message(sprintf("  [%s] %d output lines", m, length(lines)))
+    for (line in lines) message(sprintf("    %s", line))
+  }
+}

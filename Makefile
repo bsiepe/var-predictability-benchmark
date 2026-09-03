@@ -23,7 +23,7 @@ PREP_DEPS    := scripts/engine/config.R scripts/engine/preprocess.R \
 # and zero-padded to 4 digits (openESM requires "0001" not "1").
 # "modify"/"unclear"/"no" rows are excluded here; a "modify" dataset enters the
 # pipeline once its modifier is coded and its TSV include field is changed to "yes"
-DATASET_IDS  := $(shell $(RSCRIPT) -e \
+DATASET_IDS  := $(shell $(RSCRIPT) --vanilla -e \
   "x <- utils::read.delim('data/meta/datasets.tsv', stringsAsFactors=FALSE, \
    colClasses=c(dataset_id='character')); \
    ids <- x[x[['include']]=='yes', 'dataset_id']; \
@@ -44,7 +44,9 @@ data/interim/%.rds: data/meta/datasets.tsv $(PREP_DEPS)
 	$(RSCRIPT) scripts/preprocess_one.R $*
 
 output/results/%.rds: data/interim/%.rds $(ENGINE_DEPS)
-	$(RSCRIPT) scripts/fit_one.R $*
+	mkdir -p output/logs
+	$(RSCRIPT) scripts/fit_one.R $* > output/logs/$*.log 2>&1
+	@echo "completed $* (log: output/logs/$*.log)"
 
 # ---- Aggregation & reports -----------------------------------------------------
 output/meta/combined.rds: $(RESULTS) scripts/04_meta_regression.R

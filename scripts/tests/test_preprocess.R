@@ -55,4 +55,44 @@ caught <- tryCatch(preprocess_dataset(df_ok, features_bad, cfg_test), error = fu
 stopifnot(inherits(caught, "error"), grepl("n_cats < 2", caught$message))
 cat("n_cats < 2: error with informative message: PASS\n")
 
+# --- lag-policy tests ---
+
+pp_base <- list(standardize = "range01_scale_limits", lag_across_night = FALSE,
+                lag_across_gaps = FALSE, use_consec_day = FALSE,
+                missing = list(method = "none"))
+
+# both day and beep entirely NA: no timing info → all consecutive pairs valid
+df_na <- data.frame(id = "p1", day = NA_integer_, beep = NA_integer_,
+                    x1 = c(1, 2, 3, 4))
+result <- build_person(df_na, "x1", scale_bounds, pp_base)
+stopifnot(identical(result$valid, c(FALSE, TRUE, TRUE, TRUE)))
+cat("both day and beep all-NA: all consecutive valid: PASS\n")
+
+# only day all-NA: same_day bypassed; consec_beep still enforced
+df_naday <- data.frame(id = "p1", day = NA_integer_, beep = c(1L, 2L, 4L, 5L), x1 = 1:4)
+result <- build_person(df_naday, "x1", scale_bounds, pp_base)
+stopifnot(identical(result$valid, c(FALSE, TRUE, FALSE, TRUE)))
+cat("only day all-NA: same_day bypassed, beep gap still blocked: PASS\n")
+
+# only beep all-NA: consec_beep bypassed; same_day still enforced
+df_nabeep <- data.frame(id = "p1", day = c(1L, 1L, 2L, 2L), beep = NA_integer_, x1 = 1:4)
+result <- build_person(df_nabeep, "x1", scale_bounds, pp_base)
+stopifnot(identical(result$valid, c(FALSE, TRUE, FALSE, TRUE)))
+cat("only beep all-NA: consec_beep bypassed, day boundary still blocked: PASS\n")
+
+# partial NA in day: those rows non-consecutive (NA → FALSE after lag_ok cleanup)
+df_partial <- data.frame(id = "p1", day = c(1L, NA_integer_, 1L), beep = c(1L, 2L, 3L), x1 = 1:3)
+result <- build_person(df_partial, "x1", scale_bounds, pp_base)
+stopifnot(identical(result$valid, c(FALSE, FALSE, FALSE)))
+cat("partial NA day: affected rows non-consecutive: PASS\n")
+
+# daily mode: consecutive days valid; non-consecutive day (gap) blocked
+pp_daily <- pp_base
+pp_daily$lag_across_night <- TRUE
+pp_daily$use_consec_day <- TRUE
+df_daily <- data.frame(id = "p1", day = c(1L, 2L, 3L, 5L), beep = c(1L, 1L, 1L, 1L), x1 = 1:4)
+result <- build_person(df_daily, "x1", scale_bounds, pp_daily)
+stopifnot(identical(result$valid, c(FALSE, TRUE, TRUE, FALSE)))  # day 3→5 is a gap
+cat("daily mode: consecutive days valid, day gap blocked: PASS\n")
+
 cat("all preprocess tests passed\n")

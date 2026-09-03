@@ -11,6 +11,7 @@ cfg <- list(
     lag_order = 1,
     lag_across_night = FALSE,
     lag_across_gaps = FALSE,
+    use_consec_day = FALSE,   # if TRUE, gap check uses diff(day)==1 instead of consec beep (daily diaries)
     missing = list(method = "none"),
     min_obs_person = 20
   ),

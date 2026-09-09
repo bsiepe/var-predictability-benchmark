@@ -44,9 +44,7 @@ data/interim/%.rds: data/meta/datasets.tsv $(PREP_DEPS)
 	$(RSCRIPT) scripts/preprocess_one.R $*
 
 output/results/%.rds: data/interim/%.rds $(ENGINE_DEPS)
-	mkdir -p output/logs
 	$(RSCRIPT) scripts/fit_one.R $* > output/logs/$*.log 2>&1
-	@echo "completed $* (log: output/logs/$*.log)"
 
 # ---- Aggregation & reports -----------------------------------------------------
 output/meta/combined.rds: $(RESULTS) scripts/04_meta_regression.R

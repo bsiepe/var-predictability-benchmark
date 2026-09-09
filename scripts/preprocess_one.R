@@ -48,7 +48,19 @@ if (startsWith(dataset_id, "mock")) {
   registry <- readr::read_tsv(here::here("data", "meta", "datasets.tsv"),
                               col_types = readr::cols(dataset_id = readr::col_character()))
   row <- registry[as.integer(registry$dataset_id) == as.integer(dataset_id), ]
-  if (nrow(row) == 0) stop("dataset_id '", dataset_id, "' not found in data/meta/datasets.tsv")
+  if (nrow(row) != 1)
+    stop("expected exactly 1 row for dataset_id '", dataset_id, "' in datasets.tsv, got ", nrow(row))
+
+  lag_mode <- if ("lag_mode" %in% names(row) && !is.na(row$lag_mode) && nzchar(trimws(row$lag_mode)))
+                trimws(row$lag_mode) else "within_day"
+  if (lag_mode == "daily") {
+    cfg$preprocess$lag_across_night <- TRUE  # rows span different days by definition
+    cfg$preprocess$use_consec_day <- TRUE    # gap check: diff(day)==1, not consec beep
+  } else if (lag_mode != "within_day") {
+    stop("unknown lag_mode '", lag_mode, "' for dataset ", dataset_id,
+         ". valid values: within_day, daily")
+  }
+
   if (!is.na(row$variables_original) && nzchar(trimws(row$variables_original))) {
     selected <- trimws(strsplit(row$variables_original, ",")[[1]])
     missing_names <- setdiff(selected, features$name)

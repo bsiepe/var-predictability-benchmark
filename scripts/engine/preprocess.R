@@ -33,10 +33,17 @@ build_person <- function(df_p, items, scale_bounds, pp) {
   # (row 1 has no predecessor, so always FALSE)
   same_day <- c(FALSE, utils::tail(day, -1) == utils::head(day, -1))
   consec_beep <- c(FALSE, utils::tail(beep, -1) == utils::head(beep, -1) + 1L)
+  consec_day <- c(FALSE, diff(day) == 1L)  # day[t] - day[t-1] == 1 (for daily diaries)
+
+  # if a timing column is entirely absent, its constraint cannot be verified → unconstrained
+  if (Tn >= 2 && all(is.na(day)))  same_day[2:Tn]    <- TRUE
+  if (Tn >= 2 && all(is.na(beep))) consec_beep[2:Tn] <- TRUE
+
+  consec <- if (isTRUE(pp$use_consec_day)) consec_day else consec_beep
   night_ok <- pp$lag_across_night | same_day
-  gap_ok <- pp$lag_across_gaps | consec_beep
+  gap_ok <- pp$lag_across_gaps | consec
   lag_ok <- night_ok & gap_ok
-  lag_ok[is.na(lag_ok)] <- FALSE  # NA day/beep → treat as non-consecutive
+  lag_ok[is.na(lag_ok)] <- FALSE  # partial NA timing → treat as non-consecutive
 
   # construct lagged Y matrix, with NA for first row and any rows that are not lag_ok
   Ylag <- matrix(NA_real_, nrow = Tn, ncol = ncol(Y), dimnames = dimnames(Y))

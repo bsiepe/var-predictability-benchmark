@@ -41,6 +41,7 @@ if (length(results) == 0) stop("no usable result files after filtering")
 # Those rows will naturally produce R² = NaN/Inf and can be filtered later if a
 # particular analysis requires finite values
 metrics <- map(results, \(r) mutate(r$metrics_var, dataset_id = r$dataset_id,
+                                    id = as.character(id),
                                     .before = 1)) |>
   bind_rows() |>
   mutate(

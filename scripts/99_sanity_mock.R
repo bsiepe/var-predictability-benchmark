@@ -31,6 +31,8 @@ cat(sprintf("var   mean in-sample R2   : %.3f\n", agg("var", "in")))
 cat(sprintf("var   mean OOS R2         : %.3f\n", agg("var", "oos")))
 cat(sprintf("ri    mean in-sample R2   : %.3f\n", agg("ri", "in")))
 cat(sprintf("ri    mean OOS R2         : %.3f\n", agg("ri", "oos")))
+cat(sprintf("locf  mean in-sample R2   : %.3f\n", agg("locf", "in")))
+cat(sprintf("locf  mean OOS R2         : %.3f\n", agg("locf", "oos")))
 cat(sprintf("trend mean in-sample R2   : %.3f\n", agg("trend", "in")))
 cat(sprintf("trend mean OOS R2         : %.3f\n", agg("trend", "oos")))
 cat(sprintf("ml_ar  mean in-sample R2  : %.3f\n", agg("ml_ar", "in")))
@@ -42,6 +44,7 @@ cat(sprintf("mean   mean OOS R2        : %.3f\n", agg("mean", "oos")))
 
 ok <- abs(agg("ar", "in") - truth_R2) < 0.05 &&
       abs(agg("mean", "in")) < 0.02 &&
+      is.finite(agg("locf", "in")) && is.finite(agg("locf", "oos")) &&
       agg("ar", "oos") > agg("mean", "oos") &&
       agg("trend", "in") >= agg("mean", "in") - 1e-10 &&
       agg("var", "in") >= agg("ar", "in") - 1e-10 &&   # VAR nests AR(1)

@@ -26,6 +26,15 @@ mean_predict <- function(fitted, test) {
          dimnames = dimnames(test$Y))
 }
 
+# Last observation carried forward: Yhat[t] = Y[t-1]
+locf_fit <- function(train, spec) list()
+
+locf_predict <- function(fitted, test) {
+  Yhat <- test$Ylag
+  dimnames(Yhat) <- dimnames(test$Y)
+  Yhat
+}
+
 # OLS fit of y ~ intercept + slope * t for a single variable
 .ols_trend <- function(y, t) stats::lm.fit(cbind(1, t), y)$coefficients
 
@@ -212,6 +221,7 @@ ml_var_predict <- function(fitted, test_person) {
 #----------- Model registry
 model_registry <- list(
   mean  = list(label = "Person mean", level = "person",  fit = mean_fit, predict = mean_predict),
+  locf  = list(label = "LOCF", level = "person", fit = locf_fit, predict = locf_predict),
   trend = list(label = "Deterministic trend", level = "person",  fit = trend_fit, predict = trend_predict),
   ri    = list(label = "Random intercept", level = "dataset", fit = ri_fit,  predict = ri_predict),
   ar    = list(label = "AR(1)",  level = "person",  fit = ar_fit, predict = ar_predict),

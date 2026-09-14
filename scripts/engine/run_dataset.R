@@ -10,12 +10,19 @@ run_dataset <- function(interim, cfg) {
     if (is.null(model)) stop("unknown model: ", m)
     message(sprintf("fitting %s...", m))
 
+    spec <- cfg[[paste0(m, ".spec")]]
+    if (m == "ml_var" && !is.null(cfg$ml_var.max_p) &&
+        length(interim$items) > cfg$ml_var.max_p) {
+      spec$re_corr <- FALSE
+      message(sprintf("[ml_var] p=%d > max_p=%d, using uncorrelated RE",
+                      length(interim$items), cfg$ml_var.max_p))
+    }
+
     # capture warnings, messages, and errors; continue on all
     result <- tryCatch(
       withCallingHandlers(
         {
-          oos <- crossval_model(persons, model, cfg$cv,
-                               spec = cfg[[paste0(m, ".spec")]])
+          oos <- crossval_model(persons, model, cfg$cv, spec = spec)
           m_out <- compute_metrics(oos)
           metrics <- m_out$by_id
           metrics$model <- m

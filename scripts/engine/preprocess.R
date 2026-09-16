@@ -15,18 +15,18 @@ normalize_items <- function(mat, scale_bounds, method) {
 
 # generic helper for applying missing data handling
 apply_missing_policy <- function(mat, method) {
-  if (method %in% c("none", "locf_lag", "kalman_lag")) return(mat)
+  if (method %in% c("none", "locf_lag")) return(mat)
   stop(sprintf("missing$method '%s' not implemented", method))
 }
 
 # impute missing values column-wise using imputeTS. only for lag construction, never for response Y.
 impute_for_lag <- function(mat, method, max_consec) {
+  if (is.null(max_consec)) max_consec <- Inf
   mat_orig <- mat
   for (v in seq_len(ncol(mat))) {
-    if (!any(is.na(mat[, v]))) next
+    if (!any(is.na(mat[, v])) || all(is.na(mat[, v]))) next
     mat[, v] <- switch(method,
-      locf_lag = imputeTS::na_locf(mat[, v], maxgap = max_consec),
-      kalman_lag = imputeTS::na_kalman(mat[, v], smooth = FALSE, maxgap = max_consec),
+      locf_lag = imputeTS::na_locf(mat[, v], maxgap = max_consec, na_remaining = "keep"),
       stop("unknown lag imputation method: ", method)
     )
   }
@@ -61,7 +61,7 @@ build_person <- function(df_p, items, scale_bounds, pp) {
 
   # impute Y for lag construction only; response Y stays original
   n_imputed <- 0L
-  if (pp$missing$method %in% c("locf_lag", "kalman_lag")) {
+  if (pp$missing$method == "locf_lag") {
     result <- impute_for_lag(Y, pp$missing$method, pp$missing$max_consec)
     Y_for_lag <- result$mat
     n_imputed <- result$n_imputed

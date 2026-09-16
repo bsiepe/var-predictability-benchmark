@@ -95,4 +95,84 @@ result <- build_person(df_daily, "x1", scale_bounds, pp_daily)
 stopifnot(identical(result$valid, c(FALSE, TRUE, TRUE, FALSE)))  # day 3→5 is a gap
 cat("daily mode: consecutive days valid, day gap blocked: PASS\n")
 
+# --- LOCF lag imputation tests ---
+
+pp_locf <- pp_base
+pp_locf$missing <- list(method = "locf_lag", max_consec = 2)
+pp_locf$lag_across_night <- TRUE
+pp_locf$lag_across_gaps <- TRUE
+
+# 1. single-item NA: Y[t] stays NA, Ylag[t+1] filled, row t+1 becomes valid
+df_locf1 <- data.frame(id = "p1", day = 1L, beep = 1:4, x1 = c(1, 2, NA, 4))
+result <- build_person(df_locf1, "x1", scale_bounds, pp_locf)
+stopifnot(is.na(result$Y[3, "x1"]))              # response preserved
+stopifnot(!is.na(result$Ylag[4, "x1"]))           # lag filled by LOCF
+stopifnot(result$valid[3] == FALSE)                # row 3 invalid (Y NA)
+stopifnot(result$valid[4] == TRUE)                 # row 4 now valid
+result_none <- build_person(df_locf1, "x1", scale_bounds, pp_base)
+stopifnot(result_none$valid[4] == FALSE)           # without LOCF, row 4 would be invalid
+cat("LOCF: single-item NA fills Ylag but not Y: PASS\n")
+
+# 2. maxgap guard: gap of 3 with maxgap=2 → none filled; gap of 2 → all filled
+df_locf2 <- data.frame(id = "p1", day = 1L, beep = 1:8,
+                        x1 = c(1, NA, NA, NA, 4, NA, NA, 4))
+result <- build_person(df_locf2, "x1", scale_bounds, pp_locf)
+# gap of 3 (t=2,3,4): exceeds maxgap=2, all left NA
+stopifnot(is.na(result$Ylag[3, "x1"]))
+stopifnot(is.na(result$Ylag[5, "x1"]))
+# gap of 2 (t=6,7): within maxgap, both filled
+stopifnot(!is.na(result$Ylag[7, "x1"]))
+stopifnot(!is.na(result$Ylag[8, "x1"]))
+cat("LOCF: maxgap guard: long gap unfilled, short gap filled: PASS\n")
+
+# 3. n_imputed count (only the gap-of-2 was filled)
+stopifnot(result$n_imputed == 2L)
+cat("LOCF: n_imputed count correct: PASS\n")
+
+# 4. backward compatibility: method="none" → n_imputed=0
+result_compat <- build_person(df_locf1, "x1", scale_bounds, pp_base)
+stopifnot(result_compat$n_imputed == 0L)
+cat("LOCF: method=none returns n_imputed=0: PASS\n")
+
+# 5. lag_ok boundaries still enforced after LOCF
+pp_locf_day <- pp_locf
+pp_locf_day$lag_across_night <- FALSE
+df_locf3 <- data.frame(id = "p1", day = c(1L, 1L, 2L, 2L),
+                        beep = c(1L, 2L, 1L, 2L),
+                        x1 = c(1, 2, NA, 4))
+result <- build_person(df_locf3, "x1", scale_bounds, pp_locf_day)
+stopifnot(is.na(result$Ylag[3, "x1"]))            # lag_ok=FALSE at day boundary
+stopifnot(result$valid[3] == FALSE)
+stopifnot(!is.na(result$Ylag[4, "x1"]))           # within day, LOCF fills
+stopifnot(result$valid[4] == TRUE)
+cat("LOCF: lag_ok boundaries still enforced: PASS\n")
+
+# 6. multi-item: one item NA doesn't block another
+scale_bounds2 <- data.frame(name = c("x1", "x2"), scale_min = c(0, 0),
+                             scale_max = c(4, 4), stringsAsFactors = FALSE)
+df_multi <- data.frame(id = "p1", day = 1L, beep = 1:4,
+                        x1 = c(1, NA, 3, 4), x2 = c(1, 2, 3, 4))
+result <- build_person(df_multi, c("x1", "x2"), scale_bounds2, pp_locf)
+stopifnot(result$valid[2] == FALSE)                # Y[2, x1] NA → row 2 invalid
+stopifnot(result$valid[3] == TRUE)                 # Ylag[3, x1] filled by LOCF
+stopifnot(abs(result$Ylag[3, "x1"] - 0.25) < 1e-10)  # normalized(1) = 1/4
+cat("LOCF: multi-item single NA doesn't block other items: PASS\n")
+
+# 7. leading NA stays NA (no backward fill)
+df_lead <- data.frame(id = "p1", day = 1L, beep = 1:4, x1 = c(NA, 2, 3, 4))
+result <- build_person(df_lead, "x1", scale_bounds, pp_locf)
+stopifnot(is.na(result$Y[1, "x1"]))               # response NA preserved
+stopifnot(is.na(result$Ylag[2, "x1"]))            # Ylag[2] = Y_for_lag[1], which should still be NA
+cat("LOCF: leading NA stays NA (no backward fill): PASS\n")
+
+# 8. all-NA column for one person doesn't crash
+scale_bounds2 <- data.frame(name = c("x1", "x2"), scale_min = c(0, 0),
+                             scale_max = c(4, 4), stringsAsFactors = FALSE)
+df_allna <- data.frame(id = "p1", day = 1L, beep = 1:4,
+                        x1 = c(NA, NA, NA, NA), x2 = c(1, 2, 3, 4))
+result <- build_person(df_allna, c("x1", "x2"), scale_bounds2, pp_locf)
+stopifnot(all(is.na(result$Y[, "x1"])))           # all-NA column unchanged
+stopifnot(result$n_imputed == 0L)                  # nothing to impute
+cat("LOCF: all-NA column doesn't crash: PASS\n")
+
 cat("all preprocess tests passed\n")

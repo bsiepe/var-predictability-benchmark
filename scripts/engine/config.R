@@ -13,7 +13,7 @@ cfg <- list(
     lag_across_night = FALSE,
     lag_across_gaps = FALSE,
     use_consec_day = FALSE,   # if TRUE, gap check uses diff(day)==1 instead of consec beep (daily diaries)
-    missing = list(method = "none", max_consec = 2), # "locf_lag" or "kalman_lag": impute for lag construction only
+    missing = list(method = "none", max_consec = 2), # "locf_lag": LOCF impute for lag construction only
     min_obs_person = 20
   ),
 

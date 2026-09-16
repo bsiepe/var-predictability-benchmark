@@ -15,8 +15,22 @@ normalize_items <- function(mat, scale_bounds, method) {
 
 # generic helper for applying missing data handling
 apply_missing_policy <- function(mat, method) {
-  if (method == "none") return(mat)
+  if (method %in% c("none", "locf_lag", "kalman_lag")) return(mat)
   stop(sprintf("missing$method '%s' not implemented", method))
+}
+
+# impute missing values column-wise using imputeTS. only for lag construction, never for response Y.
+impute_for_lag <- function(mat, method, max_consec) {
+  mat_orig <- mat
+  for (v in seq_len(ncol(mat))) {
+    if (!any(is.na(mat[, v]))) next
+    mat[, v] <- switch(method,
+      locf_lag = imputeTS::na_locf(mat[, v], maxgap = max_consec),
+      kalman_lag = imputeTS::na_kalman(mat[, v], smooth = FALSE, maxgap = max_consec),
+      stop("unknown lag imputation method: ", method)
+    )
+  }
+  list(mat = mat, n_imputed = sum(is.na(mat_orig) & !is.na(mat)))
 }
 
 # Building a person modeldata object from a single person's dataframe
@@ -24,7 +38,7 @@ build_person <- function(df_p, items, scale_bounds, pp) {
   # this function assumes that df_p is already ordered correctly per person
   Y <- as.matrix(df_p[, items, drop = FALSE])
   Y <- normalize_items(Y, scale_bounds, pp$standardize)
-  Y <- apply_missing_policy(Y, pp$missing$method)
+  Y <- apply_missing_policy(Y, pp$missing$method)  # returns Y unchanged for lag methods; imputation happens below
   Tn <- nrow(Y)
 
   day <- df_p$day
@@ -45,12 +59,20 @@ build_person <- function(df_p, items, scale_bounds, pp) {
   lag_ok <- night_ok & gap_ok
   lag_ok[is.na(lag_ok)] <- FALSE  # partial NA timing → treat as non-consecutive
 
-  # construct lagged Y matrix, with NA for first row and any rows that are not lag_ok
+  # impute Y for lag construction only; response Y stays original
+  n_imputed <- 0L
+  if (pp$missing$method %in% c("locf_lag", "kalman_lag")) {
+    result <- impute_for_lag(Y, pp$missing$method, pp$missing$max_consec)
+    Y_for_lag <- result$mat
+    n_imputed <- result$n_imputed
+  } else {
+    Y_for_lag <- Y
+  }
+
   Ylag <- matrix(NA_real_, nrow = Tn, ncol = ncol(Y), dimnames = dimnames(Y))
-  if (Tn >= 2) Ylag[2:Tn, ] <- Y[1:(Tn - 1), , drop = FALSE]
+  if (Tn >= 2) Ylag[2:Tn, ] <- Y_for_lag[1:(Tn - 1), , drop = FALSE]
   Ylag[!lag_ok, ] <- NA
 
-  # check for complete cases in Y and Ylag, and mark valid observations
   valid <- lag_ok & stats::complete.cases(Y) & stats::complete.cases(Ylag)
 
   list(
@@ -58,7 +80,8 @@ build_person <- function(df_p, items, scale_bounds, pp) {
     Y = Y,
     Ylag = Ylag,
     time = seq_len(Tn) - (Tn + 1) / 2,
-    valid = valid
+    valid = valid,
+    n_imputed = n_imputed
   )
 }
 
@@ -89,6 +112,7 @@ preprocess_dataset <- function(df, features, cfg, dataset_id = NA_character_) {
                   items = items, scale_bounds = scale_bounds, pp = pp)
 
   n_valid <- vapply(built, function(person_data) sum(person_data$valid), integer(1))
+  n_imputed <- vapply(built, function(person_data) person_data$n_imputed, integer(1))
   keep <- n_valid >= pp$min_obs_person
   if (!any(keep)) warning("no person clears min_obs_person = ", pp$min_obs_person)
 
@@ -97,6 +121,7 @@ preprocess_dataset <- function(df, features, cfg, dataset_id = NA_character_) {
     persons = built[keep],
     excluded = names(built)[!keep],
     n_valid = n_valid,
+    n_imputed = n_imputed,
     items = items,
     settings = pp
   )

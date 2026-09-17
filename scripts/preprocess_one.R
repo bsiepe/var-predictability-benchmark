@@ -76,5 +76,5 @@ if (startsWith(dataset_id, "mock")) {
 
 interim <- preprocess_dataset(df, features, cfg, dataset_id = dataset_id)
 message(sprintf("preprocessed %s: %d persons kept, %d excluded",
-                dataset_id, length(interim$persons), length(interim$excluded)))
+                dataset_id, length(interim$persons), nrow(interim$excluded)))
 saveRDS(interim, file.path("data", "interim", paste0(dataset_id, ".rds")))

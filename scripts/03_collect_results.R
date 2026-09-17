@@ -5,10 +5,7 @@
 #   output/analysis/metrics.rds: person x model x variable x set (primary table)
 #   output/analysis/metrics.csv: same, for inspection / cross-tool use
 #   output/analysis/dataset_meta.rds: dataset-level summary with nested model_failures
-#
-# note: metrics contains ss_res, ss_tot, n and R2_by_variable (per-variable R²).
-# to obtain person-level R², re-aggregate as 1 - sum(ss_res) / sum(ss_tot) over variables.
-# do NOT average R2_by_variable — denominators differ across variables.
+#   output/meta/combined.rds: person x model x set with R2, RMSE, n, and moderators
 
 library(here)
 library(dplyr)
@@ -61,7 +58,7 @@ dataset_meta <- map(results, function(r) {
   tibble(
     dataset_id = r$dataset_id,
     n_persons_kept = r$meta$n_person,
-    n_persons_excluded  = length(r$meta$excluded),
+    n_persons_excluded  = nrow(r$meta$excluded),
     n_items = length(unique(r$metrics_var$variable)),
     model_failures = list(r$meta$model_failures)  # named logical vector; unnest to analyse
   )
@@ -88,3 +85,25 @@ write_csv(mutate(metrics, model = as.character(model)),
 
 message(sprintf("collected %d datasets, %d rows in metrics",
                 nrow(dataset_meta), nrow(metrics)))
+
+# --- person-level aggregation for meta-analysis ---
+person_metrics <- metrics |>
+  group_by(dataset_id, id, model, set) |>
+  summarise(
+    R2   = 1 - sum(ss_res) / sum(ss_tot),
+    rmse = if (sum(n) > 0) sqrt(sum(ss_res) / sum(n)) else NA_real_,
+    n    = sum(n),
+    .groups = "drop"
+  ) |>
+  left_join(
+    select(dataset_meta, dataset_id, n_beeps_per_day, n_time_points,
+           n_participants, lag_mode, p = n_items),
+    by = "dataset_id"
+  )
+
+dir.create(here("output", "meta"), showWarnings = FALSE, recursive = TRUE)
+saveRDS(person_metrics, here("output", "meta", "combined.rds"))
+message(sprintf("combined.rds: %d rows, %d datasets, %d models",
+                nrow(person_metrics),
+                n_distinct(person_metrics$dataset_id),
+                n_distinct(person_metrics$model)))

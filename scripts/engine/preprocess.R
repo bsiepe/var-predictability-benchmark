@@ -113,15 +113,33 @@ preprocess_dataset <- function(df, features, cfg, dataset_id = NA_character_) {
 
   n_valid <- vapply(built, function(person_data) sum(person_data$valid), integer(1))
   n_imputed <- vapply(built, function(person_data) person_data$n_imputed, integer(1))
-  keep <- n_valid >= pp$min_obs_person
-  if (!any(keep)) warning("no person clears min_obs_person = ", pp$min_obs_person)
+
+  # require all items to have nonzero variance across valid observations
+  has_variance <- vapply(built, function(person_data) {
+    v <- person_data$valid
+    if (sum(v) < 2L) return(FALSE)
+    all(apply(person_data$Y[v, , drop = FALSE], 2, stats::var, na.rm = TRUE) > 0)
+  }, logical(1))
+
+  too_few <- n_valid < pp$min_obs_person
+  no_var <- !too_few & !has_variance
+  keep <- !too_few & has_variance
+  if (!any(keep)) warning("no person retained (", sum(too_few), " too few obs, ",
+                          sum(no_var), " zero variance)")
+
+  excluded <- data.frame(
+    id = names(built)[!keep],
+    reason = ifelse(too_few[!keep], "low_obs", "zero_var"),
+    stringsAsFactors = FALSE
+  )
 
   list(
     dataset_id = dataset_id,
     persons = built[keep],
-    excluded = names(built)[!keep],
+    excluded = excluded,
     n_valid = n_valid,
     n_imputed = n_imputed,
+    has_variance = has_variance,
     items = items,
     settings = pp
   )

@@ -26,7 +26,7 @@ compute_metrics <- function(oos_table) {
     dplyr::summarise(ss_res = sum(ss_res), ss_tot = sum(ss_tot), n = sum(n),
                      .by = c(id, set)) |>
     dplyr::mutate(
-      R2 = 1 - ss_res / ss_tot,
+      R2 = ifelse(ss_tot > 0, 1 - ss_res / ss_tot, NA_real_),
       stdRMSE = sqrt(ss_res / n)
     ) |>
     dplyr::select(id, set, R2, stdRMSE, n)

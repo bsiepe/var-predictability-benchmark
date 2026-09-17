@@ -1,0 +1,118 @@
+---
+title: "VAR Predictability Benchmark"
+subtitle: "Meta Regression"
+author: 
+ - name: Björn S. Siepe
+   orcid: 0000-0002-9558-4648
+   affiliations: University of Marburg
+date: "`r Sys.Date()`"
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+    code-tools: true
+    code-summary: "Show the code"
+    fig-width: 7
+    fig-height: 4.5
+    fig-align: "center"
+    embed-resources: true
+execute:
+  message: false
+  warning: false
+  eval: true
+---
+
+
+# Preparation
+
+We first load all relevant packages and data.
+
+```{r}
+#| label: setup
+library(here)
+library(tibble)
+library(dplyr)
+library(brms)
+library(pander)
+
+seed <- 395013
+
+# load data
+df_meta <- readRDS(here::here("output", "meta", "combined.rds"))
+
+```
+
+
+We then need to create unique identifiers for each individual, ensuring that the same id number is not mistaken as the same person across different datasets. We do this by combining the dataset name and the person id.
+
+```{r}
+#| label: create-unique-id
+df_meta <- df_meta |>
+  dplyr::mutate(unique_id = paste0(dataset_id, "_", id))
+
+# TODO temporary before new results collection 
+df_meta <- df_meta |>
+   dplyr::mutate(rmse = RMSE)
+```
+
+# Meta Regression for RMSE
+
+Before we conduct the meta-regression, we need to average the RMSE values across all variables for each person in a dataset. This is necessary because the RMSE values are calculated per variable, and we want to analyze the overall performance of each model for each individual.
+
+```{r}
+#| label: average-rmse
+df_meta <- df_meta |>
+  dplyr::group_by(dataset_id, unique_id, model, set) |>
+  dplyr::mutate(mean_rmse = mean(rmse, na.rm = TRUE)) |>
+  dplyr::ungroup()
+```
+
+We then need to check the amount of true zeroes, because the log-normal distribution cannot handle zeroes. If there are too many zeroes, we may need to consider a different distribution or transformation.
+
+```{r}
+#| label: check-zeroes
+zeroes <- sum(df_meta$mean_rmse == 0, na.rm = TRUE)
+```
+
+There are `r zeroes` true zeroes in the RMSE values. Given this relatively small number (`r round(zeroes / nrow(df_meta) * 100, 2)`% of the total), we can proceed with the log-normal model, but we need to add a small constant to the RMSE values to avoid issues with the log transformation.
+
+This constant should be smaller than the smallest non-zero RMSE value in the dataset. We can calculate this minimum value and then add a small fraction of it to all RMSE values.
+
+```{r}
+#| label: add-small-constant
+min_nonzero_rmse <- min(df_meta$mean_rmse[df_meta$mean_rmse > 0], na.rm = TRUE)
+
+# add a small constant (1% of the minimum non-zero RMSE) to all RMSE values
+df_meta <- df_meta |>
+  dplyr::mutate(mean_rmse = mean_rmse + 0.01 * min_nonzero_rmse)
+```
+
+## Log-Normal Models
+
+We now fit a simple meta regression model for RMSE with a log-normal distribution.
+
+```{r}
+#| label: meta-rmse-lognormal
+fit_rmse_lognormal <- brm(
+  formula = mean_rmse ~ 1 + model + (1 | dataset_id) + (1 | set),
+  data = df_meta,
+  family = lognormal(),
+  chains = 4,
+  cores = 4,
+  iter = 2000,
+  warmup = 1000,
+  seed = seed
+)
+```
+
+
+
+
+
+# Session Info
+
+```{r}
+#| label: session-info
+```

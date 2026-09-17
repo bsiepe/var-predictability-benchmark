@@ -25,17 +25,228 @@ execute:
 ---
 
 <!--
-Read-only report. Reads cached results from output/results/ and output/meta/
-and never refits. Produces the main tables and figures:
-  - predictability across the complexity ladder (person-level conditional R²)
-  - in-sample vs out-of-sample R² gap (a deliverable in its own right)
-  - meta-regression of moderators on person-level R²
-  - secondary: standardized RMSE
-Figures written to figures/.
+Read-only report. Reads cached results from output/ and never refits.
+Primary outcome: person-level RMSE on [0,1]-rescaled items.
+Secondary: R². Figures written to figures/.
 -->
+
+# Preparation
 
 ```{r setup}
 #| include: false
-# source("../R/00_functions.R"); source("../R/config.R")
-# TODO: implement.
+library(here)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+source(here("scripts", "00_plotting_functions.R"))
+
+combined <- readRDS(here("output", "meta", "combined.rds"))
+metrics <- readRDS(here("output", "analysis", "metrics.rds"))
+dataset_meta <- readRDS(here("output", "analysis", "dataset_meta.rds"))
+
+model_order <- c("mean", "locf", "trend", "ri", "ar", "var", "ml_ar", "ml_var")
+model_labels <- c("Mean", "LOCF", "Trend", "RI", "AR", "VAR", "mlAR", "mlVAR")
+
+dat <- combined |>
+  filter(set == "oos", is.finite(RMSE), RMSE > 0) |>
+  mutate(model = factor(model, levels = model_order, labels = model_labels))
 ```
+
+# Descriptives
+
+## Sample overview
+
+```{r}
+#| label: tbl-sample
+# TODO: sample summary table (datasets × persons × items × timepoints)
+```
+
+## Exclusions
+
+```{r}
+#| label: tbl-exclusions
+# TODO: exclusion counts by reason (low_obs, zero_var)
+```
+
+# Predictive accuracy across the complexity ladder
+
+## Average RMSE across datasets
+
+We first look at the average RMSE across all datasets for each model. The RMSE values are calculated per person and per variable, and we average them across all variables for each person in a dataset.
+```{r}
+#| label: fig-rmse-ladder
+#| fig-cap: "Out-of-sample RMSE by model complexity. Each point is one person."
+#| fig-height: 5.5
+y_cap <- 0.75
+
+outliers <- dat |>
+  filter(RMSE > y_cap) |>
+  count(model, name = "n_out")
+
+message(sprintf("%d observations (%.1f%%) with RMSE > %.2f beyond cap",
+                sum(outliers$n_out), 100 * sum(outliers$n_out) / nrow(dat), y_cap))
+
+ggplot(dat, aes(x = model, y = RMSE)) +
+  ggdist::stat_halfeye(
+    adjust = 1, width = 0.5, justification = -0.2,
+    .width = 0, point_colour = NA,
+    fill = "#A0B4C8", alpha = 0.7
+  ) +
+  geom_boxplot(
+    width = 0.15, outlier.shape = NA, alpha = 0.5
+  ) +
+  geom_jitter(
+    width = 0.05, alpha = 0.15, size = 0.8, colour = "#2C3E50"
+  ) +
+  geom_segment(
+    data = outliers,
+    aes(x = model, xend = model, y = y_cap * 0.92, yend = y_cap),
+    arrow = arrow(length = unit(0.15, "cm")),
+    colour = "grey30", inherit.aes = FALSE
+  ) +
+  geom_text(
+    data = outliers,
+    aes(x = model, y = y_cap * 0.88, label = paste0("n=", n_out, "outliers")),
+    size = 3, colour = "grey30", inherit.aes = FALSE
+  ) +
+  coord_cartesian(ylim = c(0, y_cap), expand = FALSE) +
+  labs(x = NULL, y = "Out-of-sample RMSE [0, 1]") +
+  theme_bs()
+```
+
+## In-sample vs. out-of-sample RMSE
+
+```{r}
+#| label: fig-rmse-gap
+#| fig-cap: "In-sample vs. out-of-sample RMSE by model complexity. Points are means across persons. Lines connect the two sets within each model."
+#| fig-height: 5
+
+dat_both <- combined |>
+  filter(is.finite(RMSE), RMSE > 0) |>
+  mutate(model = factor(model, levels = model_order, labels = model_labels),
+         set = factor(set, levels = c("in", "oos"), labels = c("In-sample", "OOS"))) |>
+  summarise(RMSE = mean(RMSE, na.rm = TRUE), .by = c(model, set))
+
+ggplot(dat_both, aes(x = set, y = RMSE, group = model, colour = model)) +
+  geom_line(linewidth = 0.7, alpha = 0.8) +
+  geom_point(size = 2.5) +
+  coord_cartesian(ylim = c(0, 0.3), expand = FALSE) +
+  scale_colour_manual(values = model_palette) +
+  labs(x = NULL, y = "Mean RMSE [0, 1]", colour = NULL) +
+  theme_bs()
+```
+
+## Person-specific vs. multilevel models
+
+```{r}
+#| label: fig-shrinkage
+#| fig-cap: "Person-level OOS RMSE: person-specific vs. multilevel models. Points below the diagonal indicate shrinkage improved predictions."
+#| fig-height: 5
+
+dat_shrink <- combined |>
+  filter(set == "oos", is.finite(RMSE), RMSE > 0) |>
+  select(dataset_id, id, model, RMSE) |>
+  pivot_wider(names_from = model, values_from = RMSE) |>
+  pivot_longer(
+    cols = c(ml_ar, ml_var),
+    names_to = "ml_model", values_to = "RMSE_ml"
+  ) |>
+  mutate(
+    person_model = if_else(ml_model == "ml_ar", ar, var),
+    comparison = factor(ml_model,
+                        levels = c("ml_ar", "ml_var"),
+                        labels = c("AR vs. mlAR", "VAR vs. mlVAR"))
+  ) |>
+  filter(is.finite(RMSE_ml), is.finite(person_model))
+
+xy_cap <- 0.75
+
+ggplot(dat_shrink, aes(x = person_model, y = RMSE_ml)) +
+  annotate("polygon",
+           x = c(0, xy_cap, xy_cap), y = c(0, 0, xy_cap),
+           fill = "#6BAED6", alpha = 0.07) +
+  annotate("polygon",
+           x = c(0, 0, xy_cap), y = c(0, xy_cap, xy_cap),
+           fill = "#FC8D59", alpha = 0.07) +
+  annotate("text", x = xy_cap * 0.75, y = xy_cap * 0.18,
+           label = "Multilevel\nbetter", colour = "#6BAED6",
+           size = 3.5, hjust = 0.5) +
+  annotate("text", x = xy_cap * 0.18, y = xy_cap * 0.75,
+           label = "Person-specific\nbetter", colour = "#FC8D59",
+           size = 3.5, hjust = 0.5) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey50", linetype = "dashed") +
+  geom_point(alpha = 0.2, size = 0.9, colour = "#2C3E50") +
+  ggh4x::facet_wrap2(~ comparison, axes = "all") +
+  coord_cartesian(xlim = c(0, xy_cap), ylim = c(0, xy_cap), expand = FALSE) +
+  labs(x = "Person-specific RMSE", y = "Multilevel RMSE") +
+  theme_bs()
+```
+
+
+
+## Incremental RMSE reduction
+
+```{r}
+#| label: fig-incremental
+#| fig-cap: "Incremental OOS RMSE reduction at each step of the complexity ladder, with posterior credible intervals. Requires fitted brms model."
+#| eval: false
+# TODO: successive-difference contrasts from brms model (04_meta_regression.qmd)
+# posterior means + 80/95% intervals per complexity step
+```
+
+## Heterogeneity across datasets
+
+```{r}
+#| label: fig-heterogeneity
+#| fig-cap: "OOS RMSE by model and dataset. Each panel is one dataset; points are persons."
+#| fig-height: 10
+
+ggplot(dat, aes(y = model, x = RMSE)) +
+  geom_boxplot(width = 0.5, outlier.shape = NA, alpha = 0.5) +
+  geom_jitter(height = 0.15, alpha = 0.15, size = 0.6, colour = "#2C3E50") +
+  ggh4x::facet_wrap2(~ dataset_id, axes = "all") +
+  coord_cartesian(xlim = c(0, y_cap), expand = FALSE) +
+  labs(y = NULL, x = "OOS RMSE [0, 1]") +
+  theme_bs(base_size = 11)
+```
+
+## Model dominance
+
+```{r}
+#| label: fig-dominance
+#| fig-cap: "Pairwise model dominance: Proportion of persons where the row model has lower OOS RMSE than the column model. Values above 0.5 indicate the row model wins more often."
+#| fig-height: 5.5
+
+model_pairs <- expand.grid(model_a = model_labels, model_b = model_labels,
+                           stringsAsFactors = FALSE)
+
+dat_wide <- dat |>
+  select(dataset_id, id, model, RMSE) |>
+  pivot_wider(names_from = model, values_from = RMSE)
+
+dominance <- model_pairs |>
+  rowwise() |>
+  mutate(
+    prop = if_else(model_a == model_b, NA_real_,
+                   mean(dat_wide[[model_a]] < dat_wide[[model_b]], na.rm = TRUE))
+  ) |>
+  ungroup() |>
+  mutate(
+    model_a = factor(model_a, levels = model_labels),
+    model_b = factor(model_b, levels = rev(model_labels))
+  )
+
+ggplot(dominance, aes(x = model_a, y = model_b, fill = prop)) +
+  geom_tile() +
+  geom_text(aes(label = round(prop, 2)), size = 3.5, colour = "grey10") +
+  scale_fill_distiller(palette = "RdBu", limits = c(0, 1), direction = 1,
+                       na.value = "grey95",
+                       name = "P(row model better)") +
+  labs(x = NULL, y = NULL) +
+  theme_bs() +
+  theme(legend.position = "right")
+```
+
+# Model-Based Estimates of Predictive Accuracy
+

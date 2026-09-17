@@ -13,6 +13,9 @@ source("scripts/engine/run_dataset.R")
 set.seed(cfg$seed)
 mock <- make_mock_openesm(seed = 1)
 interim <- preprocess_dataset(mock$data, mock$meta, cfg, dataset_id = "mock01")
+stopifnot("p_const" %in% interim$excluded$id,
+          interim$excluded$reason[interim$excluded$id == "p_const"] == "zero_var")
+cat("zero-var person p_const correctly excluded\n")
 result <- run_dataset(interim, cfg)
 
 kept <- names(interim$persons)
@@ -23,7 +26,7 @@ agg <- function(model, set) mean(met$R2[met$model == model & met$set == set], na
 
 cat(sprintf("\nPersons kept: %d / %d  (excluded: %s)\n",
             length(interim$persons), length(mock$truth),
-            paste(interim$excluded, collapse = ", ")))
+            paste(interim$excluded$id, collapse = ", ")))
 cat(sprintf("Mean phi^2 (ground truth) : %.3f\n", truth_R2))
 cat(sprintf("ar    mean in-sample R2   : %.3f\n", agg("ar", "in")))
 cat(sprintf("ar    mean OOS R2         : %.3f\n", agg("ar", "oos")))

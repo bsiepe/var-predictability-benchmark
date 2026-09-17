@@ -47,8 +47,8 @@ output/results/%.rds: data/interim/%.rds $(ENGINE_DEPS)
 	$(RSCRIPT) scripts/fit_one.R $* > output/logs/$*.log 2>&1
 
 # ---- Aggregation & reports -----------------------------------------------------
-output/meta/combined.rds: $(RESULTS) scripts/04_meta_regression.R
-	$(RSCRIPT) scripts/04_meta_regression.R
+output/meta/combined.rds: $(RESULTS) scripts/03_collect_results.R
+	$(RSCRIPT) scripts/03_collect_results.R
 
 meta: output/meta/combined.rds
 

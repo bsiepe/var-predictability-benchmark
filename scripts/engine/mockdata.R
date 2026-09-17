@@ -44,6 +44,16 @@ make_mock_openesm <- function(
     rows[[id]] <- df
   }
 
+  # zero-variance person: constant responses, should be excluded in preprocessing
+  id_const <- "p_const"
+  n_t_const <- days * beeps_per_day
+  truth[[id_const]] <- setNames(rep(0, n_items), items)
+  df_const <- data.frame(id = id_const, beep = rep(seq_len(beeps_per_day), days),
+                         day = rep(seq_len(days), each = beeps_per_day),
+                         stringsAsFactors = FALSE)
+  for (j in items) df_const[[j]] <- mid
+  rows[[id_const]] <- df_const
+
   # meta mirrors the openESM features tibble: name + answer_categories
   list(
     data  = do.call(rbind, rows),

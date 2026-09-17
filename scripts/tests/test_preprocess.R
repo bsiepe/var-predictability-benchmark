@@ -175,4 +175,41 @@ stopifnot(all(is.na(result$Y[, "x1"])))           # all-NA column unchanged
 stopifnot(result$n_imputed == 0L)                  # nothing to impute
 cat("LOCF: all-NA column doesn't crash: PASS\n")
 
+# --- zero-variance person exclusion tests ---
+
+# 1. one constant item, one varying: person excluded (all items must have variance)
+features2 <- data.frame(name = c("x1", "x2"), answer_categories = c("5", "5"),
+                         stringsAsFactors = FALSE)
+cfg_var <- list(preprocess = c(pp_base, list(min_obs_person = 2L,
+                lag_across_night = TRUE, lag_across_gaps = TRUE)))
+df_const <- data.frame(id = rep("p1", 5), beep = 1:5, day = 1L,
+                        x1 = c(2, 2, 2, 2, 2), x2 = c(1, 2, 3, 4, 0))
+res <- preprocess_dataset(df_const, features2, cfg_var, dataset_id = "test")
+stopifnot(nrow(res$excluded) == 1L, res$excluded$reason == "zero_var")
+stopifnot(length(res$persons) == 0L)
+cat("zero-var: constant item excludes person: PASS\n")
+
+# 2. variance on all items: person retained
+df_vary <- data.frame(id = rep("p1", 5), beep = 1:5, day = 1L,
+                       x1 = c(0, 1, 2, 3, 4), x2 = c(1, 2, 3, 4, 0))
+res <- preprocess_dataset(df_vary, features2, cfg_var, dataset_id = "test")
+stopifnot(length(res$persons) == 1L, nrow(res$excluded) == 0L)
+cat("zero-var: varying items retained: PASS\n")
+
+# 3. variance in invalid rows only: excluded
+cfg_strict <- list(preprocess = c(pp_base, list(min_obs_person = 1L)))
+df_inv <- data.frame(id = rep("p1", 4), day = c(1L, 2L, 2L, 2L),
+                      beep = c(1L, 1L, 2L, 3L), x1 = c(99, 2, 2, 2))
+res <- preprocess_dataset(df_inv, features, cfg_strict, dataset_id = "test")
+stopifnot(nrow(res$excluded) == 1L, res$excluded$reason == "zero_var")
+cat("zero-var: variance only in invalid rows: excluded: PASS\n")
+
+# 4. too few obs caught before variance check (reason = low_obs)
+df_tiny <- data.frame(id = rep("p1", 2), beep = 1:2, day = 1L, x1 = c(1, 2))
+cfg_high <- list(preprocess = c(pp_base, list(min_obs_person = 99L,
+                  lag_across_night = TRUE, lag_across_gaps = TRUE)))
+res <- preprocess_dataset(df_tiny, features, cfg_high, dataset_id = "test")
+stopifnot(nrow(res$excluded) == 1L, res$excluded$reason == "low_obs")
+cat("zero-var: too few obs -> reason is low_obs: PASS\n")
+
 cat("all preprocess tests passed\n")

@@ -34,9 +34,8 @@ results <- discard(results, \(r) is.null(r$metrics_var))
 if (length(results) == 0) stop("no usable result files after filtering")
 
 # --- primary metrics table ---
-# Keep all rows, including degenerate cases where ss_tot == 0.
-# Those rows will naturally produce R² = NaN/Inf and can be filtered later if a
-# particular analysis requires finite values
+# globally-constant persons removed in preprocessing; fold-level ss_tot == 0
+# produces R² = NA via compute_metrics() guard
 metrics <- map(results, \(r) mutate(r$metrics_var, dataset_id = r$dataset_id,
                                     id = as.character(id),
                                     .before = 1)) |>

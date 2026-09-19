@@ -11,3 +11,78 @@ library(here)
 coding_sheet_path <- here::here("data", "meta", "datasets.tsv")
 
 dataset_modifiers <- list()
+
+dataset_modifiers[["0028"]] <- function(df, features) {
+  scale_of <- function(col) {
+    row <- features[features$name == col, ]
+    c(scale_min = row$scale_min[[1]], scale_max = row$scale_max[[1]])
+  }
+
+  composites <- list(
+    paranoia   = list(cols = c("no_trust", "harm", "criticism"), ref = "no_trust"),
+    self_esteem = list(cols = c("useless", "manage_well"), ref = "useless")
+    # 'useless' is stored reverse-coded in openESM (higher = more useful),
+    # so no additional reverse-coding is needed before averaging
+  )
+
+  for (nm in names(composites)) {
+    df[[nm]] <- rowMeans(df[composites[[nm]]$cols], na.rm = TRUE)
+  }
+
+  new_rows <- do.call(rbind, lapply(names(composites), function(nm) {
+    s <- scale_of(composites[[nm]]$ref)
+    data.frame(name = nm, scale_min = s[["scale_min"]], scale_max = s[["scale_max"]],
+               stringsAsFactors = FALSE)
+  }))
+
+  new_features <- dplyr::bind_rows(features, new_rows)
+  list(df = df, features = new_features)
+}
+
+dataset_modifiers[["0072"]] <- function(df, features) {
+  # helper: inherit scale bounds from a source column
+  scale_of <- function(col) {
+    row <- features[features$name == col, ]
+    c(scale_min = row$scale_min[[1]], scale_max = row$scale_max[[1]])
+  }
+
+  composites <- list(
+    autonomy_support = list(
+      cols = c("parenting_child_decide", "parenting_child_liked"),
+      ref  = "parenting_child_decide"
+    ),
+    need_sat_d = list(
+      cols = c("contact_with_people", "connected", "intimacy",
+               "own_way", "true_self", "did_interesting",
+               "completed_difficult_project", "mastered_challenges", "even_hard_things"),
+      ref  = "contact_with_people"
+    ),
+    need_dis_d = list(
+      cols = c("excluded_ostracized", "unappreciated", "disagreements_conflicts",
+               "pressure", "told_what_to_do", "against_own_will",
+               "failure", "did_stupid", "struggled"),
+      ref  = "excluded_ostracized"
+    ),
+    child_pa = list(
+      cols = c("child_happy", "child_balanced", "child_cheerful", "child_relaxed"),
+      ref  = "child_happy"
+    ),
+    child_na = list(
+      cols = c("child_afraid", "child_sad", "child_worried", "child_angry"),
+      ref  = "child_afraid"
+    )
+  )
+
+  for (nm in names(composites)) {
+    df[[nm]] <- rowMeans(df[composites[[nm]]$cols], na.rm = TRUE)
+  }
+
+  new_rows <- do.call(rbind, lapply(names(composites), function(nm) {
+    s <- scale_of(composites[[nm]]$ref)
+    data.frame(name = nm, scale_min = s[["scale_min"]], scale_max = s[["scale_max"]],
+               stringsAsFactors = FALSE)
+  }))
+
+  new_features <- dplyr::bind_rows(features, new_rows)
+  list(df = df, features = new_features)
+}

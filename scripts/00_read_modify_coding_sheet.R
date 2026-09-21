@@ -1,7 +1,7 @@
 # per-dataset modifiers for include = "modify" datasets.
 # each modifier: function(df, features) -> list(df = ..., features = ...)
 # use dplyr::bind_rows() when adding feature rows (fills missing columns with NA)
-# to activate: code modifier, verify variable names, flip TSV include to "yes"
+# to activate: code modifier, verify variable names, flip TSV include to "yes"/"modify"
 # keys are zero-padded 4-digit dataset IDs
 
 library(dplyr)
@@ -23,6 +23,66 @@ dataset_modifiers[["0028"]] <- function(df, features) {
     self_esteem = list(cols = c("useless", "manage_well"), ref = "useless")
     # 'useless' is stored reverse-coded in openESM (higher = more useful),
     # so no additional reverse-coding is needed before averaging
+  )
+
+  for (nm in names(composites)) {
+    df[[nm]] <- rowMeans(df[composites[[nm]]$cols], na.rm = TRUE)
+  }
+
+  new_rows <- do.call(rbind, lapply(names(composites), function(nm) {
+    s <- scale_of(composites[[nm]]$ref)
+    data.frame(name = nm, scale_min = s[["scale_min"]], scale_max = s[["scale_max"]],
+               stringsAsFactors = FALSE)
+  }))
+
+  new_features <- dplyr::bind_rows(features, new_rows)
+  list(df = df, features = new_features)
+}
+
+dataset_modifiers[["0036"]] <- function(df, features) {
+  scale_of <- function(col) {
+    row <- features[features$name == col, ]
+    c(scale_min = row$scale_min[[1]], scale_max = row$scale_max[[1]])
+  }
+
+  composites <- list(
+    dampening = list(
+      cols = c("bragging_thought", "too_good_to_be_true", "ruminate_negatives",
+               "feelings_transient", "hard_to_concentrate", "think_of_risks",
+               "undeserving", "luck_will_end"),
+      ref  = "bragging_thought"
+    ),
+    positive_affect = list(
+      cols = c("happy", "excited", "content"),
+      ref  = "happy"
+    )
+  )
+
+  for (nm in names(composites)) {
+    df[[nm]] <- rowMeans(df[composites[[nm]]$cols], na.rm = TRUE)
+  }
+
+  new_rows <- do.call(rbind, lapply(names(composites), function(nm) {
+    s <- scale_of(composites[[nm]]$ref)
+    data.frame(name = nm, scale_min = s[["scale_min"]], scale_max = s[["scale_max"]],
+               stringsAsFactors = FALSE)
+  }))
+
+  new_features <- dplyr::bind_rows(features, new_rows)
+  list(df = df, features = new_features)
+}
+
+dataset_modifiers[["0061"]] <- function(df, features) {
+  scale_of <- function(col) {
+    row <- features[features$name == col, ]
+    c(scale_min = row$scale_min[[1]], scale_max = row$scale_max[[1]])
+  }
+
+  composites <- list(
+    responsiveness = list(
+      cols = c("cared_for", "respected", "supported"),
+      ref  = "cared_for"
+    )
   )
 
   for (nm in names(composites)) {

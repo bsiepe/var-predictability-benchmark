@@ -12,7 +12,7 @@ library(dplyr)
 library(purrr)
 library(readr)
 
-MODEL_LEVELS <- c("mean", "trend", "ri", "ar", "var", "ml_ar", "ml_var")
+MODEL_LEVELS <- c("mean", "locf", "trend", "ri", "ar", "var", "ml_ar", "ml_var")
 
 result_files <- list.files(here("output", "results"), pattern = "\\.rds$",
                            full.names = TRUE)

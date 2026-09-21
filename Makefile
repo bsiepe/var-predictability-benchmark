@@ -19,21 +19,21 @@ ENGINE_DEPS  := scripts/engine/config.R scripts/engine/preprocess.R \
 PREP_DEPS    := scripts/engine/config.R scripts/engine/preprocess.R \
                 scripts/00_read_modify_coding_sheet.R
 
-# Dataset IDs are read from data/meta/datasets.tsv, filtered to include == "yes",
-# and zero-padded to 4 digits (openESM requires "0001" not "1").
-# "modify"/"unclear"/"no" rows are excluded here; a "modify" dataset enters the
-# pipeline once its modifier is coded and its TSV include field is changed to "yes"
+# Dataset IDs are read from data/meta/datasets.tsv, filtered to include == "yes"
+# or "modify", and zero-padded to 4 digits (openESM requires "0001" not "1").
+# "modify" means the dataset is included but requires derived variables defined in
+# scripts/00_read_modify_coding_sheet.R. "unclear"/"no" rows are excluded.
 DATASET_IDS  := $(shell $(RSCRIPT) --vanilla -e \
   "x <- utils::read.delim('data/meta/datasets.tsv', stringsAsFactors=FALSE, \
    colClasses=c(dataset_id='character')); \
-   ids <- x[x[['include']]=='yes', 'dataset_id']; \
+   ids <- x[x[['include']] %in% c('yes', 'modify'), 'dataset_id']; \
    cat(sprintf('%04d', as.integer(ids)), sep=' ')")
 
 INTERIM      := $(patsubst %,data/interim/%.rds,$(DATASET_IDS))
 RESULTS      := $(patsubst %,output/results/%.rds,$(DATASET_IDS))
 
 # ---- Phony targets -------------------------------------------------------------
-.PHONY: all preprocess fit meta reports clean restore
+.PHONY: all preprocess fit meta reports clean rerun restore
 all: reports
 
 preprocess: $(INTERIM)
@@ -62,3 +62,7 @@ restore:
 
 clean:
 	rm -f data/interim/*.rds output/results/*.rds output/meta/*.rds
+
+rerun:
+	$(MAKE) clean
+	$(MAKE) all

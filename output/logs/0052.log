@@ -16,15 +16,20 @@ The following package(s) have broken symlinks into the cache:
 - survival
 Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
 
-- The project is out-of-sync -- use `]8;;x-r-run:renv::status()renv::status()]8;;` for details.
 here() starts at /home/bjoern/projects/var-predictability-benchmark
 fitting mean...
+fitting locf...
 fitting trend...
 fitting ri...
 fitting ar...
 fitting var...
 fitting ml_ar...
+[ml_ar] boundary (singular) fit: see help('isSingular')
+
+[ml_ar] boundary (singular) fit: see help('isSingular')
+
 fitting ml_var...
+[ml_var] p=13 > max_p=12, using uncorrelated RE
 [ml_var] boundary (singular) fit: see help('isSingular')
 
 [ml_var] boundary (singular) fit: see help('isSingular')
@@ -255,4 +260,58 @@ fitting ml_var...
 
 [ml_var] boundary (singular) fit: see help('isSingular')
 
-fit 0052: 140 persons x 7 models
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+fit 0052: 30 persons x 8 models

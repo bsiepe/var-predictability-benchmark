@@ -13,11 +13,6 @@ coding_sheet_path <- here::here("data", "meta", "datasets.tsv")
 dataset_modifiers <- list()
 
 dataset_modifiers[["0028"]] <- function(df, features) {
-  scale_of <- function(col) {
-    row <- features[features$name == col, ]
-    c(scale_min = row$scale_min[[1]], scale_max = row$scale_max[[1]])
-  }
-
   composites <- list(
     paranoia   = list(cols = c("no_trust", "harm", "criticism"), ref = "no_trust"),
     self_esteem = list(cols = c("useless", "manage_well"), ref = "useless")
@@ -30,21 +25,16 @@ dataset_modifiers[["0028"]] <- function(df, features) {
   }
 
   new_rows <- do.call(rbind, lapply(names(composites), function(nm) {
-    s <- scale_of(composites[[nm]]$ref)
-    data.frame(name = nm, scale_min = s[["scale_min"]], scale_max = s[["scale_max"]],
+    ref <- composites[[nm]]$ref
+    data.frame(name = nm,
+               answer_categories = features$answer_categories[features$name == ref],
                stringsAsFactors = FALSE)
   }))
 
-  new_features <- dplyr::bind_rows(features, new_rows)
-  list(df = df, features = new_features)
+  list(df = df, features = dplyr::bind_rows(features, new_rows))
 }
 
 dataset_modifiers[["0034"]] <- function(df, features) {
-  scale_of <- function(col) {
-    row <- features[features$name == col, ]
-    c(scale_min = row$scale_min[[1]], scale_max = row$scale_max[[1]])
-  }
-
   composites <- list(
     blame        = list(cols = c("self_blame",          "others_blame"),         ref = "self_blame"),
     neg_thoughts = list(cols = c("neg_thoughts_others", "neg_thoughts_world"),   ref = "neg_thoughts_world"),
@@ -56,21 +46,16 @@ dataset_modifiers[["0034"]] <- function(df, features) {
   }
 
   new_rows <- do.call(rbind, lapply(names(composites), function(nm) {
-    s <- scale_of(composites[[nm]]$ref)
-    data.frame(name = nm, scale_min = s[["scale_min"]], scale_max = s[["scale_max"]],
+    ref <- composites[[nm]]$ref
+    data.frame(name = nm,
+               answer_categories = features$answer_categories[features$name == ref],
                stringsAsFactors = FALSE)
   }))
 
-  new_features <- dplyr::bind_rows(features, new_rows)
-  list(df = df, features = new_features)
+  list(df = df, features = dplyr::bind_rows(features, new_rows))
 }
 
 dataset_modifiers[["0036"]] <- function(df, features) {
-  scale_of <- function(col) {
-    row <- features[features$name == col, ]
-    c(scale_min = row$scale_min[[1]], scale_max = row$scale_max[[1]])
-  }
-
   composites <- list(
     dampening = list(
       cols = c("bragging_thought", "too_good_to_be_true", "ruminate_negatives",
@@ -89,21 +74,16 @@ dataset_modifiers[["0036"]] <- function(df, features) {
   }
 
   new_rows <- do.call(rbind, lapply(names(composites), function(nm) {
-    s <- scale_of(composites[[nm]]$ref)
-    data.frame(name = nm, scale_min = s[["scale_min"]], scale_max = s[["scale_max"]],
+    ref <- composites[[nm]]$ref
+    data.frame(name = nm,
+               answer_categories = features$answer_categories[features$name == ref],
                stringsAsFactors = FALSE)
   }))
 
-  new_features <- dplyr::bind_rows(features, new_rows)
-  list(df = df, features = new_features)
+  list(df = df, features = dplyr::bind_rows(features, new_rows))
 }
 
 dataset_modifiers[["0061"]] <- function(df, features) {
-  scale_of <- function(col) {
-    row <- features[features$name == col, ]
-    c(scale_min = row$scale_min[[1]], scale_max = row$scale_max[[1]])
-  }
-
   composites <- list(
     responsiveness = list(
       cols = c("cared_for", "respected", "supported"),
@@ -116,22 +96,16 @@ dataset_modifiers[["0061"]] <- function(df, features) {
   }
 
   new_rows <- do.call(rbind, lapply(names(composites), function(nm) {
-    s <- scale_of(composites[[nm]]$ref)
-    data.frame(name = nm, scale_min = s[["scale_min"]], scale_max = s[["scale_max"]],
+    ref <- composites[[nm]]$ref
+    data.frame(name = nm,
+               answer_categories = features$answer_categories[features$name == ref],
                stringsAsFactors = FALSE)
   }))
 
-  new_features <- dplyr::bind_rows(features, new_rows)
-  list(df = df, features = new_features)
+  list(df = df, features = dplyr::bind_rows(features, new_rows))
 }
 
 dataset_modifiers[["0072"]] <- function(df, features) {
-  # helper: inherit scale bounds from a source column
-  scale_of <- function(col) {
-    row <- features[features$name == col, ]
-    c(scale_min = row$scale_min[[1]], scale_max = row$scale_max[[1]])
-  }
-
   composites <- list(
     autonomy_support = list(
       cols = c("parenting_child_decide", "parenting_child_liked"),
@@ -164,11 +138,11 @@ dataset_modifiers[["0072"]] <- function(df, features) {
   }
 
   new_rows <- do.call(rbind, lapply(names(composites), function(nm) {
-    s <- scale_of(composites[[nm]]$ref)
-    data.frame(name = nm, scale_min = s[["scale_min"]], scale_max = s[["scale_max"]],
+    ref <- composites[[nm]]$ref
+    data.frame(name = nm,
+               answer_categories = features$answer_categories[features$name == ref],
                stringsAsFactors = FALSE)
   }))
 
-  new_features <- dplyr::bind_rows(features, new_rows)
-  list(df = df, features = new_features)
+  list(df = df, features = dplyr::bind_rows(features, new_rows))
 }

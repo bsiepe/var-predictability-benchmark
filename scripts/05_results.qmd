@@ -69,6 +69,14 @@ dat <- combined |>
 # TODO: exclusion counts by reason (low_obs, zero_var)
 ```
 
+## Non-Convergence
+
+```{r}
+#| label: nonconvergence
+# TODO: tabulate non-convergence counts by model and dataset
+```
+
+
 # Predictive accuracy across the complexity ladder
 
 ## Average RMSE across datasets

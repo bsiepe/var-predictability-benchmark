@@ -51,8 +51,25 @@ features_0028 <- data.frame(name = c("no_trust", "useless"),
 check_modifier("0028", raw_0028, features_0028,
                expected_vars = c("paranoia", "self_esteem"))
 
+# --- 0034 (Reeves) ----------------------------------------------------------
+# blame = mean(self_blame, others_blame)
+# neg_thoughts = mean(neg_thoughts_others, neg_thoughts_world)
+# sleep = mean(restless_sleep, sleep_troubles)
+
+raw_0034 <- c("intrusions", "unpleasant_dreams", "reliving", "upset",
+              "physical_reactions", "avoidance", "avoid_places", "amnesia",
+              "neg_thoughts_self", "neg_thoughts_world", "neg_thoughts_others",
+              "anhedonia", "distant", "difficulty_positive", "aggressive",
+              "reckless", "hypervigilant", "startled", "difficulty_concentrating",
+              "self_blame", "others_blame", "restless_sleep", "sleep_troubles")
+features_0034 <- data.frame(name = c("self_blame", "neg_thoughts_world", "sleep_troubles"),
+                             scale_min = 1, scale_max = 9,
+                             stringsAsFactors = FALSE)
+check_modifier("0034", raw_0034, features_0034,
+               expected_vars = c("blame", "neg_thoughts", "sleep"))
+
 # --- 0036 (Bosley) ----------------------------------------------------------
-# dampening = mean(8 items); positive_affect = mean(happy, excited, content)
+# dampening = mean(8 items); pa = mean(happy, excited, content)
 # worry_frequent is direct (in variables_original, not a composite)
 
 raw_0036 <- c("worry_frequent",
@@ -64,7 +81,7 @@ features_0036 <- data.frame(name = c("worry_frequent", "bragging_thought", "happ
                              scale_min = 1, scale_max = 7,
                              stringsAsFactors = FALSE)
 check_modifier("0036", raw_0036, features_0036,
-               expected_vars = c("dampening", "positive_affect"))
+               expected_vars = c("dampening", "pa"))
 
 # --- 0061 (Merolla) ---------------------------------------------------------
 # responsiveness = mean(cared_for, respected, supported)
@@ -78,7 +95,7 @@ check_modifier("0061", raw_0061, features_0061,
                expected_vars = "responsiveness")
 
 # --- 0072 (Neubauer) --------------------------------------------------------
-# autonomy_support, need_sat_d, need_dis_d, child_pa, child_na
+# autonomy_support, need_satisfaction, need_frustration, child_pa, child_na
 
 raw_0072 <- c(
   "parenting_child_decide", "parenting_child_liked",
@@ -97,7 +114,7 @@ features_0072 <- data.frame(name = ref_cols_0072,
                              scale_min = 1, scale_max = 7,
                              stringsAsFactors = FALSE)
 check_modifier("0072", raw_0072, features_0072,
-               expected_vars = c("autonomy_support", "need_sat_d", "need_dis_d",
+               expected_vars = c("autonomy_support", "need_satisfaction", "need_frustration",
                                  "child_pa", "child_na"))
 
 cat("all modifier tests passed\n")

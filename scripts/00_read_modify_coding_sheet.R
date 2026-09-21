@@ -39,6 +39,32 @@ dataset_modifiers[["0028"]] <- function(df, features) {
   list(df = df, features = new_features)
 }
 
+dataset_modifiers[["0034"]] <- function(df, features) {
+  scale_of <- function(col) {
+    row <- features[features$name == col, ]
+    c(scale_min = row$scale_min[[1]], scale_max = row$scale_max[[1]])
+  }
+
+  composites <- list(
+    blame        = list(cols = c("self_blame",          "others_blame"),         ref = "self_blame"),
+    neg_thoughts = list(cols = c("neg_thoughts_others", "neg_thoughts_world"),   ref = "neg_thoughts_world"),
+    sleep        = list(cols = c("restless_sleep",      "sleep_troubles"),       ref = "sleep_troubles")
+  )
+
+  for (nm in names(composites)) {
+    df[[nm]] <- rowMeans(df[composites[[nm]]$cols], na.rm = TRUE)
+  }
+
+  new_rows <- do.call(rbind, lapply(names(composites), function(nm) {
+    s <- scale_of(composites[[nm]]$ref)
+    data.frame(name = nm, scale_min = s[["scale_min"]], scale_max = s[["scale_max"]],
+               stringsAsFactors = FALSE)
+  }))
+
+  new_features <- dplyr::bind_rows(features, new_rows)
+  list(df = df, features = new_features)
+}
+
 dataset_modifiers[["0036"]] <- function(df, features) {
   scale_of <- function(col) {
     row <- features[features$name == col, ]
@@ -52,7 +78,7 @@ dataset_modifiers[["0036"]] <- function(df, features) {
                "undeserving", "luck_will_end"),
       ref  = "bragging_thought"
     ),
-    positive_affect = list(
+    pa = list(
       cols = c("happy", "excited", "content"),
       ref  = "happy"
     )
@@ -111,13 +137,13 @@ dataset_modifiers[["0072"]] <- function(df, features) {
       cols = c("parenting_child_decide", "parenting_child_liked"),
       ref  = "parenting_child_decide"
     ),
-    need_sat_d = list(
+    need_satisfaction = list(
       cols = c("contact_with_people", "connected", "intimacy",
                "own_way", "true_self", "did_interesting",
                "completed_difficult_project", "mastered_challenges", "even_hard_things"),
       ref  = "contact_with_people"
     ),
-    need_dis_d = list(
+    need_frustration = list(
       cols = c("excluded_ostracized", "unappreciated", "disagreements_conflicts",
                "pressure", "told_what_to_do", "against_own_will",
                "failure", "did_stupid", "struggled"),

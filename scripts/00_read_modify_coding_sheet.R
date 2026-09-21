@@ -37,8 +37,7 @@ dataset_modifiers[["0028"]] <- function(df, features) {
 dataset_modifiers[["0034"]] <- function(df, features) {
   composites <- list(
     blame        = list(cols = c("self_blame",          "others_blame"),         ref = "self_blame"),
-    neg_thoughts = list(cols = c("neg_thoughts_others", "neg_thoughts_world"),   ref = "neg_thoughts_world"),
-    sleep        = list(cols = c("restless_sleep",      "sleep_troubles"),       ref = "sleep_troubles")
+    neg_thoughts = list(cols = c("neg_thoughts_others", "neg_thoughts_world"),   ref = "neg_thoughts_world")
   )
 
   for (nm in names(composites)) {

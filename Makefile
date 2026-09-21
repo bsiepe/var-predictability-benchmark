@@ -65,4 +65,4 @@ clean:
 
 rerun:
 	$(MAKE) clean
-	$(MAKE) all
+	$(MAKE) -k all

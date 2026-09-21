@@ -50,7 +50,13 @@ build_person <- function(df_p, items, scale_bounds, pp) {
   consec_day <- c(FALSE, diff(day) == 1L)  # day[t] - day[t-1] == 1 (for daily diaries)
 
   # if a timing column is entirely absent, its constraint cannot be verified → unconstrained
-  if (Tn >= 2 && all(is.na(day)))  same_day[2:Tn]    <- TRUE
+  if (Tn >= 2 && all(is.na(day))) {
+    # day column is entirely absent: both the night constraint (same_day) and the
+    # daily-diary gap constraint (consec_day) cannot be verified, so treat all
+    # rows as satisfying them.
+    same_day[2:Tn] <- TRUE
+    consec_day[2:Tn] <- TRUE
+  }
   if (Tn >= 2 && all(is.na(beep))) consec_beep[2:Tn] <- TRUE
 
   consec <- if (isTRUE(pp$use_consec_day)) consec_day else consec_beep

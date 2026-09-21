@@ -95,6 +95,13 @@ result <- build_person(df_daily, "x1", scale_bounds, pp_daily)
 stopifnot(identical(result$valid, c(FALSE, TRUE, TRUE, FALSE)))  # day 3→5 is a gap
 cat("daily mode: consecutive days valid, day gap blocked: PASS\n")
 
+# daily mode with all-NA day column: day info absent, consec_day unconstrained
+df_daily_nday <- data.frame(id = "p1", day = NA_integer_, beep = c(1L, 1L, 1L, 1L),
+                             x1 = 1:4)
+result <- build_person(df_daily_nday, "x1", scale_bounds, pp_daily)
+stopifnot(identical(result$valid, c(FALSE, TRUE, TRUE, TRUE)))
+cat("daily mode + all-NA day: consec_day unconstrained: PASS\n")
+
 # --- LOCF lag imputation tests ---
 
 pp_locf <- pp_base

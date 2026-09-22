@@ -42,6 +42,9 @@ seed <- 395013
 # load data
 df_meta <- readRDS(here::here("output", "meta", "combined.rds"))
 
+# should all models be refit?
+refit_models <- FALSE
+
 ```
 
 
@@ -80,19 +83,24 @@ We now fit a simple meta regression model for RMSE with a log-normal distributio
 
 ```{r}
 #| label: meta-rmse-lognormal
-fit_rmse_lognormal <- brm(
-  formula = mean_rmse ~ 1 + model + (1 | dataset_id) + (1 | set),
-  data = df_meta,
-  family = lognormal(),
-  chains = 4,
-  cores = 4,
-  iter = 2000,
-  warmup = 1000,
-  seed = seed
-)
+model_path <- here::here("output", "analysis", "fit_rmse_lognormal.rds")
 
-# save the model 
-saveRDS(fit_rmse_lognormal, here::here("output", "meta", "fit_rmse_lognormal.rds"))
+if (refit_models || !file.exists(model_path)) {
+  fit_rmse_lognormal <- brm(
+    mean_rmse ~ 1 + model + (1 | dataset_id) + (1 | set),
+    data = df_meta,
+    family = lognormal(),
+    chains = 4,
+    cores = 4,
+    iter = 3000,
+    warmup = 1000,
+    seed = seed
+  )
+
+  saveRDS(fit_rmse_lognormal, model_path)
+} else {
+  fit_rmse_lognormal <- readRDS(model_path)
+}
 ```
 
 

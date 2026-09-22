@@ -51,7 +51,8 @@ if (nrow(metrics) == 0) stop("metrics table is empty")
 # --- dataset-level summary ---
 registry <- read_tsv(here("data", "meta", "datasets.tsv"),
                      col_types = cols(dataset_id = col_character()),
-                     show_col_types = FALSE)
+                     show_col_types = FALSE) |>
+  mutate(dataset_id = sprintf("%04d", as.integer(dataset_id)))
 
 dataset_meta <- map(results, function(r) {
   tibble(

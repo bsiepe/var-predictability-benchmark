@@ -58,7 +58,7 @@ df_meta <- df_meta |>
 
 # Meta Regression for RMSE
 
-Before we conduct the meta-regression, we need to average the RMSE values across all variables for each person in a dataset. This is necessary because the RMSE values are calculated per variable, and we want to analyze the overall performance of each model for each individual.
+Before we conduct the meta-regression, we need to average the RMSE values across all variables for each person in a dataset. This is necessary because the RMSE values are calculated per variable, and we want to analyze the overall performance of each model for each individual. We also select only the out-of-sample RMSE values, as these are the most relevant for evaluating model performance.
 
 ```{r}
 #| label: average-rmse
@@ -66,6 +66,10 @@ df_meta <- df_meta |>
   dplyr::group_by(dataset_id, unique_id, model, set) |>
   dplyr::mutate(mean_rmse = mean(rmse, na.rm = TRUE)) |>
   dplyr::ungroup()
+
+# select oos values
+df_meta <- df_meta |>
+  dplyr::filter(set == "oos")
 ```
 
 We then need to check the amount of true zeroes, because the log-normal distribution cannot handle zeroes. If there are too many zeroes, we may need to consider a different distribution or transformation.
@@ -87,7 +91,7 @@ model_path <- here::here("output", "analysis", "fit_rmse_lognormal.rds")
 
 if (refit_models || !file.exists(model_path)) {
   fit_rmse_lognormal <- brm(
-    mean_rmse ~ 1 + model + (1 | dataset_id) + (1 | set),
+    mean_rmse ~ 1 + model + (1 | dataset_id),
     data = df_meta,
     family = lognormal(),
     chains = 4,

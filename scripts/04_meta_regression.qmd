@@ -36,6 +36,8 @@ library(tibble)
 library(dplyr)
 library(brms)
 library(pander)
+library(parameters)
+library(bayesplot)
 
 seed <- 395013
 
@@ -83,7 +85,9 @@ There are `r zeroes` true zeroes in the RMSE values. We can thus proceed with th
 
 ## Log-Normal Models
 
-We now fit a simple meta regression model for RMSE with a log-normal distribution.
+
+### Fixed-Effect for Model, Random-Effect for Dataset (M1)
+We now fit a simple meta regression model for RMSE with a log-normal distribution and default priors. 
 
 ```{r}
 #| label: meta-rmse-lognormal
@@ -107,6 +111,36 @@ if (refit_models || !file.exists(model_path)) {
 }
 ```
 
+These priors are: 
+
+```{r}
+#| label: priors-rmse-lognormal
+brms::get_prior(fit_rmse_lognormal)|>
+  dplyr::select(prior, class, coef, group) |>
+  pander::pander(caption = "Priors for the log-normal meta regression model for RMSE.")
+```
+
+Here's the summary of the model: 
+```{r}
+#| label: summary-rmse-lognormal
+parameters::model_parameters(fit_rmse_lognormal, test = "pd")
+```
+
+Here's a traceplot of some main parameters: 
+
+```{r}
+#| label: traceplot-rmse-lognormal
+bayesplot::mcmc_trace(fit_rmse_lognormal, pars = c("b_Intercept", "b_modellocf", "b_modeltrend", "b_modelri", "b_modelar", "b_modelvar", "b_modelml_ar", "b_modelml_var"))
+```
+
+Here's a posterior predictive check of the model:
+```{r}
+#| label: ppcheck-rmse-lognormal
+bayesplot::pp_check(fit_rmse_lognormal, type = "dens_overlay", ndraws = 100)
+```
+
+
+### M1 + Moderator for Number of Timepoints (M2)
 
 
 

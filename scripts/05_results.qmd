@@ -48,8 +48,8 @@ dataset_meta <- readRDS(here("output", "analysis", "dataset_meta.rds"))
 model_order <- c("mean", "locf", "trend", "ri", "ar", "var", "ml_ar", "ml_var")
 model_labels <- c("Mean", "LOCF", "Trend", "RI", "AR", "VAR", "mlAR", "mlVAR")
 
-dat <- combined |>
-  filter(set == "oos", is.finite(RMSE), RMSE > 0) |>
+dat_oos <- combined |>
+  filter(set == "oos", is.finite(rmse), rmse > 0) |>
   mutate(model = factor(model, levels = model_order, labels = model_labels))
 ```
 
@@ -88,14 +88,14 @@ We first look at the average RMSE across all datasets for each model. The RMSE v
 #| fig-height: 5.5
 y_cap <- 0.75
 
-outliers <- dat |>
-  filter(RMSE > y_cap) |>
+outliers <- dat_oos |>
+  filter(rmse > y_cap) |>
   count(model, name = "n_out")
 
 message(sprintf("%d observations (%.1f%%) with RMSE > %.2f beyond cap",
-                sum(outliers$n_out), 100 * sum(outliers$n_out) / nrow(dat), y_cap))
+                sum(outliers$n_out), 100 * sum(outliers$n_out) / nrow(dat_oos), y_cap))
 
-ggplot(dat, aes(x = model, y = RMSE)) +
+ggplot(dat_oos, aes(x = model, y = rmse)) +
   ggdist::stat_halfeye(
     adjust = 1, width = 0.5, justification = -0.2,
     .width = 0, point_colour = NA,
@@ -131,12 +131,12 @@ ggplot(dat, aes(x = model, y = RMSE)) +
 #| fig-height: 5
 
 dat_both <- combined |>
-  filter(is.finite(RMSE), RMSE > 0) |>
+  filter(is.finite(rmse), rmse > 0) |>
   mutate(model = factor(model, levels = model_order, labels = model_labels),
          set = factor(set, levels = c("in", "oos"), labels = c("In-sample", "OOS"))) |>
-  summarise(RMSE = mean(RMSE, na.rm = TRUE), .by = c(model, set))
+  summarise(rmse = mean(rmse, na.rm = TRUE), .by = c(model, set))
 
-ggplot(dat_both, aes(x = set, y = RMSE, group = model, colour = model)) +
+ggplot(dat_both, aes(x = set, y = rmse, group = model, colour = model)) +
   geom_line(linewidth = 0.7, alpha = 0.8) +
   geom_point(size = 2.5) +
   coord_cartesian(ylim = c(0, 0.3), expand = FALSE) +
@@ -153,12 +153,12 @@ ggplot(dat_both, aes(x = set, y = RMSE, group = model, colour = model)) +
 #| fig-height: 5
 
 dat_shrink <- combined |>
-  filter(set == "oos", is.finite(RMSE), RMSE > 0) |>
-  select(dataset_id, id, model, RMSE) |>
-  pivot_wider(names_from = model, values_from = RMSE) |>
+  filter(set == "oos", is.finite(rmse), rmse > 0) |>
+  select(dataset_id, id, model, rmse) |>
+  pivot_wider(names_from = model, values_from = rmse) |>
   pivot_longer(
     cols = c(ml_ar, ml_var),
-    names_to = "ml_model", values_to = "RMSE_ml"
+    names_to = "ml_model", values_to = "rmse_ml"
   ) |>
   mutate(
     person_model = if_else(ml_model == "ml_ar", ar, var),
@@ -166,11 +166,11 @@ dat_shrink <- combined |>
                         levels = c("ml_ar", "ml_var"),
                         labels = c("AR vs. mlAR", "VAR vs. mlVAR"))
   ) |>
-  filter(is.finite(RMSE_ml), is.finite(person_model))
+  filter(is.finite(rmse_ml), is.finite(person_model))
 
 xy_cap <- 0.75
 
-ggplot(dat_shrink, aes(x = person_model, y = RMSE_ml)) +
+ggplot(dat_shrink, aes(x = person_model, y = rmse_ml)) +
   annotate("polygon",
            x = c(0, xy_cap, xy_cap), y = c(0, 0, xy_cap),
            fill = "#6BAED6", alpha = 0.07) +
@@ -210,7 +210,7 @@ ggplot(dat_shrink, aes(x = person_model, y = RMSE_ml)) +
 #| fig-cap: "OOS RMSE by model and dataset. Each panel is one dataset; points are persons."
 #| fig-height: 10
 
-ggplot(dat, aes(y = model, x = RMSE)) +
+ggplot(dat_oos, aes(y = model, x = rmse)) +
   geom_boxplot(width = 0.5, outlier.shape = NA, alpha = 0.5) +
   geom_jitter(height = 0.15, alpha = 0.15, size = 0.6, colour = "#2C3E50") +
   ggh4x::facet_wrap2(~ dataset_id, axes = "all") +
@@ -229,9 +229,9 @@ ggplot(dat, aes(y = model, x = RMSE)) +
 model_pairs <- expand.grid(model_a = model_labels, model_b = model_labels,
                            stringsAsFactors = FALSE)
 
-dat_wide <- dat |>
-  select(dataset_id, id, model, RMSE) |>
-  pivot_wider(names_from = model, values_from = RMSE)
+dat_wide <- dat_oos |>
+  select(dataset_id, id, model, rmse) |>
+  pivot_wider(names_from = model, values_from = rmse)
 
 dominance <- model_pairs |>
   rowwise() |>
@@ -250,8 +250,9 @@ ggplot(dominance, aes(x = model_a, y = model_b, fill = prop)) +
   geom_text(aes(label = round(prop, 2)), size = 3.5, colour = "grey10") +
   scale_fill_distiller(palette = "RdBu", limits = c(0, 1), direction = 1,
                        na.value = "grey95",
-                       name = "P(row model better)") +
+                       name = "P(column model better)") +
   labs(x = NULL, y = NULL) +
+  scale_x_discrete(position = "top") +
   theme_bs() +
   theme(legend.position = "right")
 ```

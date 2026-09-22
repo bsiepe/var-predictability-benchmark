@@ -51,10 +51,6 @@ We then need to create unique identifiers for each individual, ensuring that the
 #| label: create-unique-id
 df_meta <- df_meta |>
   dplyr::mutate(unique_id = paste0(dataset_id, "_", id))
-
-# TODO temporary before new results collection 
-df_meta <- df_meta |>
-   dplyr::mutate(rmse = RMSE)
 ```
 
 # Meta Regression for RMSE
@@ -76,18 +72,7 @@ We then need to check the amount of true zeroes, because the log-normal distribu
 zeroes <- sum(df_meta$mean_rmse == 0, na.rm = TRUE)
 ```
 
-There are `r zeroes` true zeroes in the RMSE values. Given this relatively small number (`r round(zeroes / nrow(df_meta) * 100, 2)`% of the total), we can proceed with the log-normal model, but we need to add a small constant to the RMSE values to avoid issues with the log transformation.
-
-This constant should be smaller than the smallest non-zero RMSE value in the dataset. We can calculate this minimum value and then add a small fraction of it to all RMSE values.
-
-```{r}
-#| label: add-small-constant
-min_nonzero_rmse <- min(df_meta$mean_rmse[df_meta$mean_rmse > 0], na.rm = TRUE)
-
-# add a small constant (1% of the minimum non-zero RMSE) to all RMSE values
-df_meta <- df_meta |>
-  dplyr::mutate(mean_rmse = mean_rmse + 0.01 * min_nonzero_rmse)
-```
+There are `r zeroes` true zeroes in the RMSE values. We can thus proceed with the log-normal model.
 
 ## Log-Normal Models
 
@@ -105,6 +90,9 @@ fit_rmse_lognormal <- brm(
   warmup = 1000,
   seed = seed
 )
+
+# save the model 
+saveRDS(fit_rmse_lognormal, here::here("output", "meta", "fit_rmse_lognormal.rds"))
 ```
 
 
@@ -115,4 +103,5 @@ fit_rmse_lognormal <- brm(
 
 ```{r}
 #| label: session-info
+pander::pander(sessionInfo())
 ```

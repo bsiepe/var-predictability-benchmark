@@ -1,0 +1,50 @@
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+fitting mean...
+fitting locf...
+fitting trend...
+fitting ri...
+fitting ar...
+fitting var...
+fitting ml_ar...
+[ml_ar] boundary (singular) fit: see help('isSingular')
+
+[ml_ar] boundary (singular) fit: see help('isSingular')
+
+fitting ml_var...
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+fit 0061: 19 persons x 8 models

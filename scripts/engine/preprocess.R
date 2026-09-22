@@ -118,7 +118,9 @@ preprocess_dataset <- function(df, features, cfg, dataset_id = NA_character_) {
                   items = items, scale_bounds = scale_bounds, pp = pp)
 
   n_valid <- vapply(built, function(person_data) sum(person_data$valid), integer(1))
+  n_total <- vapply(built, function(person_data) nrow(person_data$Y), integer(1))
   n_imputed <- vapply(built, function(person_data) person_data$n_imputed, integer(1))
+  stopifnot(identical(names(n_valid), names(n_total)))
 
   # require all items to have nonzero variance across valid observations
   has_variance <- vapply(built, function(person_data) {
@@ -144,6 +146,7 @@ preprocess_dataset <- function(df, features, cfg, dataset_id = NA_character_) {
     persons = built[keep],
     excluded = excluded,
     n_valid = n_valid,
+    n_total = n_total,
     n_imputed = n_imputed,
     has_variance = has_variance,
     items = items,

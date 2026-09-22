@@ -57,6 +57,8 @@ dat_oos <- combined |>
 
 ## Sample overview
 
+`n_total_person` counts rows present in the raw data and may underestimate the true number of scheduled beeps if absent responses were never recorded (implicit missingness). It is used as a proxy for series length, not as a compliance measure.
+
 ```{r}
 #| label: tbl-sample
 # TODO: sample summary table (datasets × persons × items × timepoints)

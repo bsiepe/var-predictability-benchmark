@@ -71,6 +71,8 @@ run_dataset <- function(interim, cfg) {
       settings = effective_cfg,
       excluded = interim$excluded,
       n_person = length(persons),
+      n_valid = interim$n_valid[names(persons)],
+      n_total = interim$n_total[names(persons)],
       model_failures = stats::setNames(model_failures, cfg$active_models)
     )
   )

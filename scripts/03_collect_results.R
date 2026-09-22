@@ -74,6 +74,18 @@ unmatched <- dataset_meta$dataset_id[is.na(dataset_meta$first_author)]
 if (length(unmatched) > 0)
   warning("dataset_ids not found in datasets.tsv: ", paste(unmatched, collapse = ", "))
 
+# --- person-level meta (series lengths) ---
+person_meta <- purrr::map(results, function(r) {
+  nv <- r$meta$n_valid
+  nt <- r$meta$n_total
+  dplyr::tibble(
+    dataset_id = r$dataset_id,
+    id = names(nv),
+    n_valid_person = as.integer(nv),
+    n_total_person = as.integer(nt)
+  )
+}) |> dplyr::bind_rows()
+
 # --- save ---
 dir.create(here("output", "analysis"), showWarnings = FALSE, recursive = TRUE)
 saveRDS(metrics, here("output", "analysis", "metrics.rds"))
@@ -98,9 +110,17 @@ person_metrics <- metrics |>
     select(dataset_meta, dataset_id, n_beeps_per_day, n_time_points,
            n_participants, lag_mode, p = n_items),
     by = "dataset_id"
-  )
+  ) |>
+  left_join(person_meta, by = c("dataset_id", "id")) |>
+  mutate(n_oos_tp = if_else(set == "oos", n / p, NA_real_))
 
 dir.create(here("output", "meta"), showWarnings = FALSE, recursive = TRUE)
+non_int <- person_metrics[!is.na(person_metrics$n_oos_tp) &
+                            person_metrics$n_oos_tp != floor(person_metrics$n_oos_tp), ]
+if (nrow(non_int) > 0)
+  warning(nrow(non_int), " OOS rows with non-integer n_oos_tp (variable-unequal missingness): ",
+          paste(unique(non_int$dataset_id), collapse = ", "))
+
 saveRDS(person_metrics, here("output", "meta", "combined.rds"))
 message(sprintf("combined.rds: %d rows, %d datasets, %d models",
                 nrow(person_metrics),

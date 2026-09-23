@@ -65,9 +65,9 @@ Before we conduct the meta-regression, we need to average the RMSE values across
 ```{r}
 #| label: average-rmse
 df_meta <- df_meta |>
-  dplyr::group_by(dataset_id, unique_id, model, set) |>
-  dplyr::mutate(mean_rmse = mean(rmse, na.rm = TRUE)) |>
-  dplyr::ungroup()
+  # summarise across all variables to keep all moderators in the dataset
+  dplyr::group_by(dplyr::across(-c(rmse, R2))) |>
+  dplyr::summarise(mean_rmse = mean(rmse, na.rm = TRUE), .groups = "drop")
 
 # select oos values
 df_meta <- df_meta |>
@@ -95,7 +95,7 @@ model_path <- here::here("output", "analysis", "fit_rmse_lognormal.rds")
 
 if (refit_models || !file.exists(model_path)) {
   fit_rmse_lognormal <- brm(
-    mean_rmse ~ 1 + model + (1 | dataset_id),
+    mean_rmse ~ 1 + model + (1 | dataset_id) + (1 | unique_id),
     data = df_meta,
     family = lognormal(),
     chains = 4,
@@ -142,8 +142,54 @@ bayesplot::pp_check(fit_rmse_lognormal, type = "dens_overlay", ndraws = 100)
 
 ### M1 + Moderator for Number of Timepoints (M2)
 
+```{r}
+#| label: meta-rmse-lognormal-timepoint
+
+model_path <- here::here("output", "analysis", "fit_rmse_lognormal_timepoint.rds")
+
+if (refit_models || !file.exists(model_path)) {
+  fit_rmse_lognormal_timepoint <- brm(
+    mean_rmse ~ 1 + model + n_valid_person + (1 | dataset_id) + (1 | unique_id),
+    data = df_meta,
+    family = lognormal(),
+    chains = 4,
+    cores = 4,
+    iter = 3000,
+    warmup = 1000,
+    seed = seed
+  )
+
+  saveRDS(fit_rmse_lognormal_timepoint, model_path)
+} else {
+  fit_rmse_lognormal_timepoint <- readRDS(model_path)
+}
+```
 
 
+### M2 + Interaction of Model with Number of Timepoints (M2)
+
+```{r}
+#| label: meta-rmse-lognormal-timepoint-interaction
+
+model_path <- here::here("output", "analysis", "fit_rmse_lognormal_timepoint_interaction.rds")
+
+if (refit_models || !file.exists(model_path)) {
+  fit_rmse_lognormal_timepoint_interaction <- brm(
+    mean_rmse ~ 1 + model * n_valid_person + (1 | dataset_id) + (1 | unique_id),
+    data = df_meta,
+    family = lognormal(),
+    chains = 4,
+    cores = 4,
+    iter = 3000,
+    warmup = 1000,
+    seed = seed
+  )
+
+  saveRDS(fit_rmse_lognormal_timepoint_interaction, model_path)
+} else {
+  fit_rmse_lognormal_timepoint_interaction <- readRDS(model_path)
+}
+```
 
 # Session Info
 

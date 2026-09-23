@@ -81,7 +81,15 @@ We then need to check the amount of true zeroes, because the log-normal distribu
 zeroes <- sum(df_meta$mean_rmse == 0, na.rm = TRUE)
 ```
 
-There are `r zeroes` true zeroes in the RMSE values. We can thus proceed with the log-normal model.
+There are `r zeroes` true zeroes in the RMSE values. We can thus proceed with the log-normal model, and exclude this individual. 
+
+```{r}
+#| label: remove-zero
+
+df_meta <- df_meta |> 
+  filter(mean_rmse != 0)
+```
+
 
 ## Log-Normal Models
 

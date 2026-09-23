@@ -333,4 +333,6 @@ fitting ml_var...
 
 [ml_var] boundary (singular) fit: see help('isSingular')
 
-fit 0001: 49 persons x 8 models
+[ml_var] boundary (singular) fit: see help('isSingular')
+
+fit 0001: 50 persons x 8 models

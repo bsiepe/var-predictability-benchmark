@@ -27,42 +27,6 @@ fitting var...
 fitting ml_ar...
 [ml_ar] boundary (singular) fit: see help('isSingular')
 
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
-[ml_ar] boundary (singular) fit: see help('isSingular')
-
 fitting ml_var...
 [ml_var] boundary (singular) fit: see help('isSingular')
 
@@ -106,14 +70,4 @@ fitting ml_var...
 
 [ml_var] boundary (singular) fit: see help('isSingular')
 
-[ml_var] boundary (singular) fit: see help('isSingular')
-
-[ml_var] boundary (singular) fit: see help('isSingular')
-
-[ml_var] boundary (singular) fit: see help('isSingular')
-
-[ml_var] boundary (singular) fit: see help('isSingular')
-
-[ml_var] boundary (singular) fit: see help('isSingular')
-
-fit 0036: 17 persons x 8 models
+fit 0036: 25 persons x 8 models

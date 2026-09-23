@@ -45,7 +45,7 @@ seed <- 395013
 df_meta <- readRDS(here::here("output", "meta", "combined.rds"))
 
 # should all models be refit?
-refit_models <- FALSE
+refit_models <- TRUE
 
 ```
 

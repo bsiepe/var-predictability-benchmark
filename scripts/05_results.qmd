@@ -324,6 +324,7 @@ preds <- newdata |>
   mutate(model = factor(model, levels = model_order, labels = model_labels))
 
 preds <- preds |>
+  left_join(dataset_meta |> select(dataset_id, first_author, year), by = "dataset_id") |>
   mutate(dataset_label = paste0(first_author, " (", year, ")"))
 
 ggplot(preds, aes(x = .epred, y = reorder(dataset_label, .epred),

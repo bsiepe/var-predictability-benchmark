@@ -127,6 +127,8 @@ ggplot(dat_oos, aes(x = model, y = rmse)) +
 
 ## In-sample vs. out-of-sample RMSE
 
+We here compute the in-sample performance by fitting each model on the whole time series, without a test-set split.
+
 ```{r}
 #| label: fig-rmse-gap
 #| fig-cap: "In-sample vs. out-of-sample RMSE by model complexity. Points are means across persons. Lines connect the two sets within each model."
@@ -151,7 +153,6 @@ We investigate the somewhat surprising result that the in-sample RMSE is not alw
 
 ```{r}
 #| label: rmse-oos-locf
-
 # per-dataset IS-OOS gap for mean (baseline distributional difference) and locf.
 # locf_specific = LOCF gap - Mean gap: the part not explained by OOS time points
 # having generally lower variance.
@@ -164,7 +165,7 @@ locf_gap <- combined |>
   select(dataset_id, model, gap) |>
   pivot_wider(names_from = model, values_from = gap) |>
   mutate(locf_specific = locf - mean) |>
-  left_join(select(dataset_meta, dataset_id, first_author, year), by = "dataset_id")
+  left_join(dataset_meta |> select(dataset_id, first_author, year), by = "dataset_id")
 
 locf_gap |>
   select(first_author, year, mean_gap = mean, locf_gap = locf, locf_specific) |>
@@ -173,6 +174,8 @@ locf_gap |>
                col.names = c("Author", "Year", "Mean gap", "LOCF gap", "LOCF-specific"),
                caption = "IS - OOS RMSE gap per dataset. 'LOCF-specific' removes the baseline distributional gap (Mean gap) from the LOCF gap. Consistently positive values suggest a LOCF-specific mechanism beyond distributional IS/OOS differences.")
 ```
+
+
 
 
 ## Person-specific vs. multilevel models

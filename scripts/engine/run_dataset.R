@@ -73,6 +73,7 @@ run_dataset <- function(interim, cfg) {
       n_person = length(persons),
       n_valid = interim$n_valid[names(persons)],
       n_total = interim$n_total[names(persons)],
+      n_imputed = interim$n_imputed[names(persons)],
       model_failures = stats::setNames(model_failures, cfg$active_models)
     )
   )

@@ -79,11 +79,13 @@ if (length(unmatched) > 0)
 person_meta <- purrr::map(results, function(r) {
   nv <- r$meta$n_valid
   nt <- r$meta$n_total
+  ni <- r$meta$n_imputed
   dplyr::tibble(
     dataset_id = r$dataset_id,
     id = names(nv),
     n_valid_person = as.integer(nv),
-    n_total_person = as.integer(nt)
+    n_total_person = as.integer(nt),
+    n_imputed = if (!is.null(ni)) as.integer(ni[names(nv)]) else 0L
   )
 }) |> dplyr::bind_rows()
 

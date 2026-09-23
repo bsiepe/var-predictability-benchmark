@@ -38,6 +38,9 @@ library(here)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
+library(ggh4x)
+library(ggdist)
+library(tidybayes)
 
 source(here("scripts", "00_plotting_functions.R"))
 
@@ -292,3 +295,49 @@ ggplot(dominance, aes(x = model_a, y = model_b, fill = prop)) +
 
 # Model-Based Estimates of Predictive Accuracy
 
+
+## M1 (Model using only model as predictor)
+
+We estimated a log-normal meta-regression model with only the model as a predictor. We can now use the outputs of this model to create a forest plot-like visualization of the predictive accuracy of each model across datasets. 
+
+
+```{r}
+#| label: fig-caterpillar-m1
+#| fig-cap: "Dataset-level predicted RMSE by model. Points are posterior means; thick bars are 80% CIs, thin lines are 95% CIs."
+#| fig-height: 10
+#| fig-width: 9
+
+fit_rmse_lognormal <- readRDS(here::here("output", "analysis", "fit_rmse_lognormal.rds"))
+
+newdata <- expand.grid(
+  model = levels(fit_rmse_lognormal$data$model),
+  dataset_id = unique(fit_rmse_lognormal$data$dataset_id),
+  unique_id = NA,
+  stringsAsFactors = FALSE
+)
+
+preds <- newdata |>
+  add_epred_draws(fit_rmse_lognormal, re_formula = ~ (1 | dataset_id),
+                  # for the dataset-level predictions, we do not include the person-level random effect
+                  allow_new_levels = TRUE) |>
+  ungroup() |>
+  mutate(model = factor(model, levels = model_order, labels = model_labels))
+
+preds <- preds |>
+  mutate(dataset_label = paste0(first_author, " (", year, ")"))
+
+ggplot(preds, aes(x = .epred, y = reorder(dataset_label, .epred),
+                  colour = model)) +
+  stat_pointinterval(position = position_dodge(width = 0.7),
+                     .width = c(0.80, 0.95),
+                     point_size = 1.5, interval_size_range = c(0.4, 1.2)) +
+  scale_colour_manual(values = model_palette) +
+  coord_cartesian(xlim = c(0, 0.5), expand = FALSE) +
+  labs(x = "Predicted RMSE [0, 1]", y = NULL, colour = NULL) +
+  theme_bs() +
+  theme(legend.position = "bottom",
+        panel.grid.major.y = element_blank())+
+  geom_hline(yintercept = seq(1.5, length(unique(preds$dataset_label)) - 0.5, 1),
+           colour = "grey90", linewidth = 0.3) +
+  guides(colour = guide_legend(nrow = 1, byrow = TRUE))
+```

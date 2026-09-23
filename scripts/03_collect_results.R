@@ -110,8 +110,9 @@ person_metrics <- metrics |>
     .groups = "drop"
   ) |>
   left_join(
-    select(dataset_meta, dataset_id, n_beeps_per_day, n_time_points,
-           n_participants, lag_mode, p = n_items),
+    select(dataset_meta, dataset_id, first_author, year,
+           n_beeps_per_day, n_time_points, n_participants,
+           sampling_scheme, participants, lag_mode, p = n_items),
     by = "dataset_id"
   ) |>
   left_join(person_meta, by = c("dataset_id", "id")) |>

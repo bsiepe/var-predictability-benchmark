@@ -1,6 +1,12 @@
 #------------- Cross-validation -------------
 # This script contains the cross-validation logic
 
+.assert_unique_person_ids <- function(persons) {
+  ids <- vapply(persons, function(person) as.character(person$id), character(1))
+  if (anyDuplicated(ids) > 0)
+    stop("duplicate person ids in cross-validation input", call. = FALSE)
+}
+
 # Make folds for cross-validation
 # person_data: a single person's data, including a logical vector `valid` indicating valid timepoints
 # cv: a list with cross-validation parameters
@@ -23,11 +29,13 @@ make_folds <- function(person_data, cv) {
 # set: "in" for in-sample, "oos" for out-of-sample
 # Yhat: matrix of predicted values (rows = timepoints, cols = variables)
 # Y: matrix of true values (rows = timepoints, cols = variables)
-.long_pairs <- function(id, set, Yhat, Y) {
+# t: row indices of Y in the person's full series, so predictions can be aligned with the observed data
+.long_pairs <- function(id, set, Yhat, Y, t) {
   data.frame(
     id = id,
     variable = rep(colnames(Y), each = nrow(Y)),
     set = set,
+    t = rep(t, times = ncol(Y)),
     yhat = as.vector(Yhat),
     y = as.vector(Y),
     stringsAsFactors = FALSE
@@ -37,24 +45,29 @@ make_folds <- function(person_data, cv) {
 # Perform cross-validation for a single person and a single model
 crossval_person <- function(person_data, model, cv, spec = NULL) {
   # in-sample: fit and predict on all valid timepoints
-  full <- subset_modeldata(person_data, which(person_data$valid))
+  valid_tps <- which(person_data$valid)
+  full <- subset_modeldata(person_data, valid_tps)
   fitted <- model$fit(full, spec)
-  out <- list(.long_pairs(person_data$id, "in", model$predict(fitted, full), full$Y))
+  # return list of dataframes with predictions and true values for each fold
+  out <- list(.long_pairs(person_data$id, "in", model$predict(fitted, full), full$Y, valid_tps))
   # OOS folds
   for (fold in make_folds(person_data, cv)) {
     train <- subset_modeldata(person_data, fold$train)
     test <- subset_modeldata(person_data, fold$test)
     fitted <- model$fit(train, spec)
-    out[[length(out) + 1L]] <- .long_pairs(person_data$id, "oos", model$predict(fitted, test), test$Y)
+    out[[length(out) + 1L]] <- .long_pairs(person_data$id, "oos", model$predict(fitted, test),
+                                           test$Y, fold$test)
   }
+  # combine datasets together
   dplyr::bind_rows(out)
 }
 
 # Dataset-level CV: model is fit on all persons jointly
-# At each step k, all persons advance by one observation (aligned expanding windows).
+# At each step k, all persons advance by one observation (aligned expanding windows)
 # Persons who exhaust their test origins contribute all valid data at later steps
 # (including former test observations)
 crossval_dataset <- function(persons, model, cv, spec = NULL) {
+  .assert_unique_person_ids(persons)
   person_folds <- lapply(persons, make_folds, cv = cv)
   n_steps <- max(vapply(person_folds, length, integer(1)), 0L)
   all_valid <- lapply(persons, function(p) subset_modeldata(p, which(p$valid)))
@@ -63,8 +76,9 @@ crossval_dataset <- function(persons, model, cv, spec = NULL) {
 
   # in-sample
   fitted_in <- fit(all_valid)
+  # for all people, return predictions for all valid timepoints in-sample
   out <- purrr::map2(persons, all_valid, function(p, valid) {
-    .long_pairs(p$id, "in", model$predict(fitted_in, valid), valid$Y)
+    .long_pairs(p$id, "in", model$predict(fitted_in, valid), valid$Y, which(p$valid))
   })
 
   # OOS: 1 step if refit_per_origin = FALSE, test_window steps otherwise
@@ -78,7 +92,8 @@ crossval_dataset <- function(persons, model, cv, spec = NULL) {
       if (k <= length(folds_i)) {
         test <- subset_modeldata(persons[[i]], folds_i[[k]]$test)
         out[[length(out) + 1L]] <- .long_pairs(persons[[i]]$id, "oos",
-                                                model$predict(fitted_k, test), test$Y)
+                                                model$predict(fitted_k, test), test$Y,
+                                                folds_i[[k]]$test)
       }
     }
   }
@@ -87,6 +102,7 @@ crossval_dataset <- function(persons, model, cv, spec = NULL) {
 
 # Wrapper to perform cross-validation for a single model across all persons in a dataset
 crossval_model <- function(persons, model, cv, spec = NULL) {
+  .assert_unique_person_ids(persons)
   if (model$level == "person") {
     return(dplyr::bind_rows(lapply(persons, crossval_person, model = model, cv = cv, spec = spec)))
   }

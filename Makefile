@@ -31,9 +31,10 @@ DATASET_IDS  := $(shell $(RSCRIPT) --vanilla -e \
 
 INTERIM      := $(patsubst %,data/interim/%.rds,$(DATASET_IDS))
 RESULTS      := $(patsubst %,output/results/%.rds,$(DATASET_IDS))
+FEATURES     := output/analysis/features.rds
 
 # ---- Phony targets -------------------------------------------------------------
-.PHONY: all preprocess fit meta reports clean rerun restore
+.PHONY: all preprocess fit meta features reports clean rerun restore
 all: reports
 
 preprocess: $(INTERIM)
@@ -52,7 +53,14 @@ output/meta/combined.rds: $(RESULTS) scripts/03_collect_results.R
 
 meta: output/meta/combined.rds
 
-reports: meta
+# series features and time-indexed OOS predictions; needs both interim and result caches
+$(FEATURES): $(INTERIM) $(RESULTS) scripts/03b_features.R scripts/engine/features.R \
+             scripts/engine/config.R scripts/engine/crossval.R
+	$(RSCRIPT) scripts/03b_features.R $(DATASET_IDS)
+
+features: $(FEATURES)
+
+reports: meta features
 	quarto render scripts/05_results.qmd
 	quarto render scripts/02_descriptives.qmd
 
@@ -61,7 +69,7 @@ restore:
 	$(RSCRIPT) -e "renv::restore()"
 
 clean:
-	rm -f data/interim/*.rds output/results/*.rds output/meta/*.rds
+	rm -f data/interim/*.rds output/results/*.rds output/meta/*.rds $(FEATURES)
 
 rerun:
 	$(MAKE) clean

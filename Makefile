@@ -32,6 +32,9 @@ DATASET_IDS  := $(shell $(RSCRIPT) --vanilla -e \
 INTERIM      := $(patsubst %,data/interim/%.rds,$(DATASET_IDS))
 RESULTS      := $(patsubst %,output/results/%.rds,$(DATASET_IDS))
 FEATURES     := output/analysis/features.rds
+META_MODELS  := output/analysis/fit_rmse_lognormal.rds \
+				output/analysis/fit_rmse_lognormal_timepoint.rds \
+				output/analysis/fit_rmse_lognormal_timepoint_interaction.rds
 
 # ---- Phony targets -------------------------------------------------------------
 .PHONY: all preprocess fit meta features reports clean rerun restore
@@ -51,7 +54,10 @@ output/results/%.rds: data/interim/%.rds $(ENGINE_DEPS)
 output/meta/combined.rds: $(RESULTS) scripts/03_collect_results.R
 	$(RSCRIPT) scripts/03_collect_results.R
 
-meta: output/meta/combined.rds
+meta: $(META_MODELS)
+
+$(META_MODELS) &: output/meta/combined.rds scripts/04_meta_regression.qmd
+	quarto render scripts/04_meta_regression.qmd -P refit_models:true
 
 # series features and time-indexed OOS predictions; needs both interim and result caches
 $(FEATURES): $(INTERIM) $(RESULTS) scripts/03b_features.R scripts/engine/features.R \
@@ -69,7 +75,7 @@ restore:
 	$(RSCRIPT) -e "renv::restore()"
 
 clean:
-	rm -f data/interim/*.rds output/results/*.rds output/meta/*.rds $(FEATURES)
+	rm -f data/interim/*.rds output/results/*.rds output/meta/*.rds $(FEATURES) $(META_MODELS)
 
 rerun:
 	$(MAKE) clean

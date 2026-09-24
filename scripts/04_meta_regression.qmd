@@ -22,6 +22,8 @@ execute:
   message: false
   warning: false
   eval: true
+params:
+  refit_models: false
 ---
 
 
@@ -44,8 +46,9 @@ seed <- 395013
 # load data
 df_meta <- readRDS(here::here("output", "meta", "combined.rds"))
 
-# should all models be refit?
-refit_models <- TRUE
+# Make passes TRUE when the upstream combined results changed
+# and direct renders reuse cached fits
+refit_models <- isTRUE(params$refit_models)
 
 ```
 

@@ -18,6 +18,13 @@ assert_identical <- function(actual, expected, label) {
 
 md <- list(valid = c(FALSE, TRUE, FALSE, TRUE, TRUE, FALSE, TRUE))
 
+stopifnot(identical(
+  make_folds(list(valid = rep(FALSE, 4)),
+             list(test_window = 3, warmup = 2, refit_per_origin = TRUE)),
+  list()
+))
+cat("zero valid timepoints produce no folds: PASS\n")
+
 assert_identical(
   make_folds(md, list(test_window = 3L, warmup = 4L, refit_per_origin = TRUE)),
   list(),

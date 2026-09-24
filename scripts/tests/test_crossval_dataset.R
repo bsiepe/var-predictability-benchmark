@@ -51,6 +51,26 @@ make_person <- function(id, n, vars = c("x1")) {
 
 cv_unit <- list(test_window = 3, warmup = 3, refit_per_origin = TRUE)
 
+# duplicate person IDs are invalid because they make prediction keys ambiguous
+{
+  expect_error <- function(expr, pattern) {
+    msg <- tryCatch({ expr; NULL }, error = function(e) conditionMessage(e))
+    stopifnot(!is.null(msg), grepl(pattern, msg))
+  }
+  expect_error(crossval_model(list(make_person("p1", 5), make_person("p1", 5)),
+                              gm, cv_unit), "duplicate person ids")
+  cat("duplicate person IDs rejected: PASS\n")
+}
+
+# all persons with zero folds still produce in-sample predictions, but no OOS rows
+{
+  ps <- list(make_person("p1", 4), make_person("p2", 4))
+  out <- crossval_dataset(ps, gm, cv_unit)
+  stopifnot(!any(out$set == "oos"), all(out$set == "in"),
+            all(c("p1", "p2") %in% out$id))
+  cat("all persons with zero folds retain in-sample output: PASS\n")
+}
+
 # Test 1: person with 0 folds appears in in-sample but not OOS
 {
   # p1: 6 valid tps → 3 folds; p2: 4 valid tps → 1 fold; p3: 3 valid tps → 0 folds
@@ -64,6 +84,29 @@ cv_unit <- list(test_window = 3, warmup = 3, refit_per_origin = TRUE)
     sum(oos$id == "p2") == 1
   )
   cat("Edge case 1 (0-fold person excluded from OOS): PASS\n")
+}
+
+# Test 4: an exhausted person contributes all valid rows to later training fits
+{
+  fit_history <- integer()
+  recording_fit <- function(train_persons, spec) {
+    fit_history <<- c(fit_history,
+                      sum(vapply(train_persons, function(p) sum(p$valid), integer(1))))
+    list(mu = colMeans(do.call(rbind, lapply(train_persons, function(p) {
+      p$Y[p$valid, , drop = FALSE]
+    }))))
+  }
+  recording_predict <- function(fitted, test) {
+    matrix(fitted$mu, nrow = nrow(test$Y), ncol = ncol(test$Y), byrow = TRUE,
+           dimnames = dimnames(test$Y))
+  }
+  recording_model <- list(label = "Recording grand mean", level = "dataset",
+                          fit = recording_fit, predict = recording_predict)
+  ps <- list(make_person("p1", 7), make_person("p2", 5))
+  out <- crossval_dataset(ps, recording_model, cv_unit)
+  stopifnot(identical(fit_history, c(10L, 6L, 8L, 9L)),
+            sum(out$set == "oos" & out$id == "p2") == 1)
+  cat("exhausted persons return to all valid rows for later fits: PASS\n")
 }
 
 # Test 2: mixed fold lengths — exhausted person falls back to all_valid at later steps;

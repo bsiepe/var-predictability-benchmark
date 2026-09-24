@@ -47,7 +47,7 @@ run_dataset <- function(interim, cfg) {
              metrics_var = data.frame(id = NA, variable = NA, set = NA,
                                       ss_res = NA, ss_tot = NA, n = NA,
                                       model = m)[0, ],
-             oos = data.frame(id = NA, variable = NA, set = NA,
+             oos = data.frame(id = NA, variable = NA, set = NA, t = NA_integer_,
                               yhat = NA, y = NA, model = m)[0, ],
              failed = TRUE)
       }

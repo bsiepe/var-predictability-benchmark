@@ -16,7 +16,8 @@ The following package(s) have broken symlinks into the cache:
 - survival
 Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
 
-- The project is out-of-sync -- use `]8;;x-r-run:renv::status()renv::status()]8;;` for details.
+- One or more packages recorded in the lockfile are not installed.
+- Use `]8;;x-r-run:renv::status()renv::status()]8;;` for more details.
 here() starts at /home/bjoern/projects/var-predictability-benchmark
 fitting mean...
 fitting locf...

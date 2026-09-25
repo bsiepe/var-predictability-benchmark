@@ -47,6 +47,7 @@ source(here("scripts", "00_plotting_functions.R"))
 combined <- readRDS(here("output", "meta", "combined.rds"))
 metrics <- readRDS(here("output", "analysis", "metrics.rds"))
 dataset_meta <- readRDS(here("output", "analysis", "dataset_meta.rds"))
+features <- readRDS(here("output", "analysis", "features.rds"))
 
 model_order <- c("mean", "locf", "trend", "ri", "ar", "var", "ml_ar", "ml_var")
 model_labels <- c("Mean", "LOCF", "Trend", "RI", "AR", "VAR", "mlAR", "mlVAR")
@@ -293,6 +294,269 @@ ggplot(dominance, aes(x = model_a, y = model_b, fill = prop)) +
   theme(legend.position = "right")
 ```
 
+## Decomposition of predictive gains
+
+Here, we display total model improvement from the mean model to the most complex model (multilevel VAR) and decompose it into three components: autoregression, cross-dynamics, and pooling. We also show two different paths of improvement: first adding cross-dynamics and then pooling, or first pooling and then adding cross-dynamics.
+
+```{r}
+#| label: fig-decomposition
+#| fig-cap: "Decomposition of the change in OOS RMSE from the mean model to mlVAR, along two paths."
+#| fig-height: 9
+#| fig-width: 11
+
+decomp_models <- c("mean", "ar", "var", "ml_ar", "ml_var")
+component_levels <- c("Autoregression", "Cross-dynamics", "Pooling", "Total")
+path_levels <- c("A: cross-lags,\nthen pooling", "B: pooling,\nthen cross-lags")
+component_palette <- setNames(c(MetBrewer::met.brewer("Hiroshige")[c(9, 2, 7)], "grey45"),
+                              component_levels)
+
+rmse_wide <- combined |>
+  filter(set == "oos", model %in% decomp_models) |>
+  mutate(rmse = if_else(is.finite(rmse) & rmse > 0, rmse, NA_real_)) |>
+  select(dataset_id, first_author, year, id, model, rmse) |>
+  pivot_wider(names_from = model, values_from = rmse)
+
+# persons need all five models for the components to add up
+n_incomplete <- sum(!complete.cases(rmse_wide[decomp_models]))
+rmse_wide <- filter(rmse_wide, if_all(all_of(decomp_models), is.finite))
+
+# change in RMSE per step, negative values mean lower RMSE after the step
+id_cols <- c("dataset_id", "first_author", "year", "id", "path")
+deltas <- bind_rows(
+  rmse_wide |>
+    mutate(path = path_levels[1],
+           Autoregression = ar - mean, `Cross-dynamics` = var - ar,
+           Pooling = ml_var - var, Total = ml_var - mean),
+  rmse_wide |>
+    mutate(path = path_levels[2],
+           Autoregression = ar - mean, `Cross-dynamics` = ml_var - ml_ar,
+           Pooling = ml_ar - ar, Total = ml_var - mean)
+) |>
+  select(all_of(id_cols), all_of(component_levels)) |>
+  pivot_longer(all_of(component_levels), names_to = "component", values_to = "delta")
+
+delta_ds <- deltas |>
+  summarise(est = mean(delta), .by = c(dataset_id, first_author, year, path, component))
+
+# datasets are weighted equally
+delta_all <- delta_ds |>
+  summarise(est = mean(est), .by = c(path, component)) |>
+  mutate(label = "All datasets")
+
+ds_labels <- delta_ds |>
+  distinct(dataset_id, first_author, year) |>
+  mutate(label = paste0(first_author, " (", year, ")"),
+         label = if_else(duplicated(label) | duplicated(label, fromLast = TRUE),
+                         paste0(label, " [", dataset_id, "]"), label))
+
+# largest total improvement at the top
+label_order <- delta_ds |>
+  filter(component == "Total", path == path_levels[1]) |>
+  left_join(ds_labels, by = c("dataset_id", "first_author", "year")) |>
+  arrange(desc(est)) |>
+  pull(label)
+
+# symmetric x-range shared by all panels. bars beyond it are cut short and labelled with their value
+x_lim <- 0.1
+
+plot_decomp <- delta_ds |>
+  left_join(ds_labels, by = c("dataset_id", "first_author", "year")) |>
+  bind_rows(delta_all) |>
+  mutate(capped = abs(est) > x_lim,
+         bar_end = if_else(capped, sign(est) * x_lim * 0.97, est),
+         label = factor(label, levels = c("All datasets", label_order)),
+         component = factor(component, levels = component_levels),
+         path = factor(path, levels = path_levels))
+
+ggplot(plot_decomp, aes(x = bar_end, y = label, fill = component)) +
+  geom_vline(xintercept = 0, colour = "grey50", linewidth = 0.3) +
+  geom_col(width = 0.7) +
+  geom_text(data = filter(plot_decomp, capped),
+            aes(x = sign(est) * x_lim, label = sprintf("%.2f", est),
+                hjust = if_else(est > 0, 1, 0)),
+            size = 2.8, colour = "grey20") +
+  geom_hline(yintercept = 1.5, colour = "grey70", linewidth = 0.3) +
+  scale_fill_manual(values = component_palette, guide = "none") +
+  ggh4x::facet_grid2(path ~ component, axes = "all", remove_labels = "y") +
+  coord_cartesian(xlim = c(-x_lim, x_lim), expand = FALSE) +
+  labs(x = "Change in OOS RMSE [0, 1] (< 0 = better)", y = NULL) +
+  theme_bs(base_size = 11) +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(colour = "#E0E0E0"))
+```
+
+## Value of pooling by series length
+
+```{r}
+#| label: fig-pooling-length
+#| fig-cap: "Change in OOS RMSE from pooling, by the person's training series length."
+#| fig-height: 5
+#| fig-width: 9
+
+y_lim <- c(-0.1, 0.05)
+
+pooling <- combined |>
+  filter(set == "oos", model %in% c("ar", "ml_ar", "var", "ml_var"),
+         is.finite(rmse), rmse > 0) |>
+  select(dataset_id, id, model, rmse) |>
+  pivot_wider(names_from = model, values_from = rmse) |>
+  mutate(`AR → mlAR` = ml_ar - ar, `VAR → mlVAR` = ml_var - var) |>
+  select(dataset_id, id, `AR → mlAR`, `VAR → mlVAR`) |>
+  pivot_longer(-c(dataset_id, id), names_to = "comparison", values_to = "delta") |>
+  filter(is.finite(delta)) |>
+  left_join(select(features$person, dataset_id, id, n_train_first),
+            by = c("dataset_id", "id"))
+
+stopifnot(!anyNA(pooling$n_train_first))
+
+beyond <- pooling |>
+  summarise(n_below = sum(delta < y_lim[1]), n_above = sum(delta > y_lim[2]),
+            .by = comparison) |>
+  mutate(label = sprintf("%d above, %d below range", n_above, n_below))
+
+# robust loess downweights persons whose person-specific model breaks down
+ggplot(pooling, aes(x = n_train_first, y = delta)) +
+  geom_hline(yintercept = 0, colour = "grey50", linewidth = 0.3) +
+  geom_point(alpha = 0.15, size = 0.8, colour = "#2C3E50") +
+  geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
+              method.args = list(family = "symmetric"),
+              colour = component_palette[["Pooling"]], linewidth = 1) +
+  # draw one line per dataset to show the within-dataset trend
+  geom_smooth(aes(group = dataset_id), method = "lm", se = FALSE,
+              colour = scales::alpha("grey50", 0.6), linewidth = 0.5) +
+  geom_text(data = beyond, aes(x = -Inf, y = Inf, label = label),
+            inherit.aes = FALSE, hjust = -0.05, vjust = 1.5, size = 3, colour = "grey30") +
+  scale_x_log10() +
+  ggh4x::facet_wrap2(~ comparison, axes = "all") +
+  coord_cartesian(ylim = y_lim) +
+  labs(x = "Training series length (first fold, log scale)",
+       y = "Change in OOS RMSE [0, 1] (< 0 = pooling better)") +
+  theme_bs()
+```
+
+## Value of cross-dynamics by data per parameter
+
+```{r}
+#| label: fig-cross-dynamics
+#| fig-cap: "Change in OOS RMSE from adding cross-lagged effects, by the number of training observations per VAR coefficient."
+#| fig-height: 5
+#| fig-width: 9
+
+y_lim_cross <- c(-0.05, 0.1)
+
+cross_dyn <- combined |>
+  filter(set == "oos", model %in% c("ar", "var", "ml_ar", "ml_var"),
+         is.finite(rmse), rmse > 0) |>
+  select(dataset_id, id, model, rmse) |>
+  pivot_wider(names_from = model, values_from = rmse) |>
+  mutate(`AR → VAR` = var - ar, `mlAR → mlVAR` = ml_var - ml_ar) |>
+  select(dataset_id, id, `AR → VAR`, `mlAR → mlVAR`) |>
+  pivot_longer(-c(dataset_id, id), names_to = "comparison", values_to = "delta") |>
+  filter(is.finite(delta)) |>
+  left_join(select(features$person, dataset_id, id, obs_per_var_eq_par),
+            by = c("dataset_id", "id"))
+
+stopifnot(!anyNA(cross_dyn$obs_per_var_eq_par))
+
+beyond_cross <- cross_dyn |>
+  summarise(n_below = sum(delta < y_lim_cross[1]), n_above = sum(delta > y_lim_cross[2]),
+            .by = comparison) |>
+  mutate(label = sprintf("%d above, %d below range", n_above, n_below))
+
+ggplot(cross_dyn, aes(x = obs_per_var_eq_par, y = delta)) +
+  geom_hline(yintercept = 0, colour = "grey50", linewidth = 0.3) +
+  geom_point(alpha = 0.15, size = 0.8, colour = "#2C3E50") +
+  geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
+              method.args = list(family = "symmetric"),
+              colour = component_palette[["Cross-dynamics"]], linewidth = 1) +
+  # draw one line per dataset to show the within-dataset trend
+  geom_smooth(aes(group = dataset_id), method = "lm", se = FALSE,
+              colour = scales::alpha("grey50", 0.6), linewidth = 0.5) +
+  geom_text(data = beyond_cross, aes(x = -Inf, y = Inf, label = label),
+            inherit.aes = FALSE, hjust = -0.05, vjust = 1.5, size = 3, colour = "grey30") +
+  scale_x_log10() +
+  ggh4x::facet_wrap2(~ comparison, axes = "all") +
+  coord_cartesian(ylim = y_lim_cross) +
+  labs(x = "Training observations per VAR coefficient (first fold, log scale)",
+       y = "Change in OOS RMSE [0, 1] (< 0 = cross-lags better)") +
+  theme_bs()
+```
+
+## Time series gallery
+
+We now select a few persons with good, average, and poor predictions by mlVAR relative to the mean model, and show one typical item per person. We also show the first OOS origin as a dashed line. We here define "skill" as the relative improvement of mlVAR over the mean model, i.e., 1 - RMSE_mlVAR / RMSE_mean. A skill of 0 means that mlVAR performs equally well as the mean model, a skill of 0.5 means that mlVAR reduces the RMSE by 50% relative to the mean model, and a negative skill means that mlVAR performs worse than the mean model.
+
+
+```{r}
+#| label: fig-gallery
+#| fig-cap: "Observed series and OOS predictions for the persons with the highest, median and lowest mlVAR skill relative to the mean model. One typical item per person. The dashed line marks the first OOS origin."
+#| fig-height: 9
+#| fig-width: 11
+
+# person-level skill of mlVAR relative to the mean model
+person_skill <- combined |>
+  filter(set == "oos", model %in% c("mean", "ml_var"), is.finite(rmse), rmse > 0) |>
+  select(dataset_id, first_author, year, id, model, rmse) |>
+  pivot_wider(names_from = model, values_from = rmse, names_prefix = "rmse_") |>
+  filter(is.finite(rmse_mean), is.finite(rmse_ml_var)) |>
+  mutate(skill = 1 - rmse_ml_var / rmse_mean) |>
+  arrange(skill, dataset_id, id)
+
+median_skill <- median(person_skill$skill)
+selected <- bind_rows(
+  slice_max(person_skill, skill, n = 3, with_ties = FALSE) |> mutate(group = "Best"),
+  slice_min(person_skill, abs(skill - median_skill), n = 3, with_ties = FALSE) |>
+    mutate(group = "Median"),
+  slice_min(person_skill, skill, n = 3, with_ties = FALSE) |> mutate(group = "Worst")
+) |>
+  mutate(rank = row_number(), .by = group)
+
+# per person, the item whose skill is closest to that person's median item skill
+item_skill <- features$item_error |>
+  filter(model %in% c("mean", "ml_var")) |>
+  select(dataset_id, id, variable, model, rmse) |>
+  pivot_wider(names_from = model, values_from = rmse, names_prefix = "rmse_") |>
+  filter(rmse_mean > 0) |>
+  mutate(item_skill = 1 - rmse_ml_var / rmse_mean)
+
+gallery_items <- selected |>
+  select(dataset_id, first_author, year, id, skill, group, rank) |>
+  inner_join(item_skill, by = c("dataset_id", "id")) |>
+  slice_min(abs(item_skill - median(item_skill)), n = 1, with_ties = FALSE,
+            by = c(dataset_id, id)) |>
+  mutate(group = factor(group, levels = c("Best", "Median", "Worst"))) |>
+  arrange(group, rank) |>
+  mutate(panel = sprintf("%s %d, skill %.2f\n%s (%s), %s",
+                         group, rank, skill, first_author, year, variable),
+         panel = factor(panel, levels = panel))
+
+gallery_keys <- select(gallery_items, dataset_id, id, variable, panel)
+
+gallery_series <- features$series |>
+  inner_join(gallery_keys, by = c("dataset_id", "id", "variable"))
+
+gallery_preds <- features$oos |>
+  filter(model %in% c("mean", "ml_var")) |>
+  inner_join(gallery_keys, by = c("dataset_id", "id", "variable")) |>
+  mutate(model = factor(model, levels = c("mean", "ml_var"), labels = c("Mean", "mlVAR")))
+
+first_origin <- summarise(gallery_preds, t0 = min(t), .by = panel)
+
+ggplot(gallery_series, aes(x = t, y = y)) +
+  geom_vline(data = first_origin, aes(xintercept = t0 - 0.5),
+             linetype = "dashed", colour = "grey50", linewidth = 0.3) +
+  geom_line(colour = "grey60", linewidth = 0.3) +
+  geom_point(colour = "grey30", size = 0.5) +
+  geom_line(data = gallery_preds, aes(y = yhat, colour = model), linewidth = 0.6) +
+  geom_point(data = gallery_preds, aes(y = yhat, colour = model), size = 1) +
+  scale_colour_manual(values = model_palette, name = NULL) +
+  ggh4x::facet_wrap2(~ panel, ncol = 3, scales = "free_x", axes = "all") +
+  coord_cartesian(ylim = c(0, 1)) +
+  labs(x = "Measurement occasion", y = "Response [0, 1]") +
+  theme_bs(base_size = 11)
+```
+
+
 # Model-Based Estimates of Predictive Accuracy
 
 
@@ -300,6 +564,7 @@ ggplot(dominance, aes(x = model_a, y = model_b, fill = prop)) +
 
 We estimated a log-normal meta-regression model with only the model as a predictor. We can now use the outputs of this model to create a forest plot-like visualization of the predictive accuracy of each model across datasets. 
 
+TODO I'm not sure if that is the best way to visualize this - the dataset specific effects might not really come through here. 
 
 ```{r}
 #| label: fig-caterpillar-m1
@@ -317,7 +582,7 @@ newdata <- expand.grid(
 )
 
 preds <- newdata |>
-  add_epred_draws(fit_rmse_lognormal, re_formula = ~ (1 | dataset_id),
+  add_epred_draws(fit_rmse_lognormal, re_formula = ~ (1 | dataset_id) + (1 | dataset_id:model),
                   # for the dataset-level predictions, we do not include the person-level random effect
                   allow_new_levels = TRUE) |>
   ungroup() |>

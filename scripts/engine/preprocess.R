@@ -94,6 +94,10 @@ build_person <- function(df_p, items, scale_bounds, pp) {
 # features: openESM features tibble with columns `name` and `answer_categories`.
 # items are identified by non-empty answer_categories; scale bounds are inferred
 # from the observed minimum + category count, computed globally across all persons.
+# optional columns `scale_min` and `scale_max` declare bounds explicitly (e.g. for sum
+# scores, where answer_categories describes the original items, not the aggregate).
+# optional column `allow_outside_bounds` exempts items with declared bounds from the range
+# guard (e.g. person-mean centred items, where only the width of the scale is known).
 preprocess_dataset <- function(df, features, cfg, dataset_id = NA_character_) {
   pp <- cfg$preprocess
   has_categories <- features$answer_categories != ""
@@ -104,14 +108,50 @@ preprocess_dataset <- function(df, features, cfg, dataset_id = NA_character_) {
     stop("df missing required columns: ", paste(setdiff(c("id", "beep", "day"), names(df)), collapse = ", "))
   if (!all(items %in% names(df)))
     stop("df missing item columns: ", paste(setdiff(items, names(df)), collapse = ", "))
-  if (any(n_cats < 2)) stop("items with n_cats < 2: ", paste(items[n_cats < 2], collapse = ", "))
 
-  scale_min <- vapply(items, function(v) floor(min(df[[v]], na.rm = TRUE)), numeric(1))
-  if (any(!is.finite(scale_min)))
-    stop("items are entirely NA: ", paste(items[!is.finite(scale_min)], collapse = ", "))
+  declared <- rep(FALSE, length(items))
+  decl_min <- rep(NA_real_, length(items))
+  decl_max <- rep(NA_real_, length(items))
+  if (all(c("scale_min", "scale_max") %in% names(features))) {
+    decl_min <- features$scale_min[has_categories]
+    decl_max <- features$scale_max[has_categories]
+    declared <- !is.na(decl_min) & !is.na(decl_max)
+    bad <- declared & decl_max <= decl_min
+    if (any(bad)) stop("declared scale_max <= scale_min for: ", paste(items[bad], collapse = ", "))
+  }
+  allow_outside <- rep(FALSE, length(items))
+  if ("allow_outside_bounds" %in% names(features)) {
+    allow_outside <- features$allow_outside_bounds[has_categories] %in% TRUE
+    if (any(allow_outside & !declared))
+      stop("allow_outside_bounds requires declared scale_min and scale_max for: ",
+           paste(items[allow_outside & !declared], collapse = ", "))
+  }
+  if (any(n_cats[!declared] < 2))
+    stop("items with n_cats < 2: ", paste(items[!declared][n_cats[!declared] < 2], collapse = ", "))
 
-  scale_bounds <- data.frame(name = items, scale_min = scale_min,
-                             scale_max = scale_min + n_cats - 1L,
+  obs_min <- vapply(items, function(v) min(df[[v]], na.rm = TRUE), numeric(1))
+  obs_max <- vapply(items, function(v) max(df[[v]], na.rm = TRUE), numeric(1))
+  if (any(!is.finite(obs_min)))
+    stop("items are entirely NA: ", paste(items[!is.finite(obs_min)], collapse = ", "))
+
+  scale_min <- floor(obs_min)
+  scale_max <- scale_min + n_cats - 1L
+  scale_min[declared] <- decl_min[declared]
+  scale_max[declared] <- decl_max[declared]
+
+  # every observed value must lie within its bounds, so that all items normalise into [0, 1]
+  tol <- 1e-8 * (scale_max - scale_min)
+  outside <- (obs_min < scale_min - tol | obs_max > scale_max + tol) & !allow_outside
+  if (any(outside))
+    stop("dataset ", dataset_id, ": values outside scale bounds for\n",
+         paste(sprintf("  %s: observed %g to %g, bounds %g to %g", items[outside],
+                       obs_min[outside], obs_max[outside], scale_min[outside], scale_max[outside]),
+               collapse = "\n"))
+
+  scale_bounds <- data.frame(name = items, scale_min = unname(scale_min),
+                             scale_max = unname(scale_max),
+                             source = ifelse(declared, "declared", "derived"),
+                             allow_outside = allow_outside,
                              stringsAsFactors = FALSE)
 
   built <- lapply(split(df, df$id), build_person,
@@ -150,6 +190,7 @@ preprocess_dataset <- function(df, features, cfg, dataset_id = NA_character_) {
     n_imputed = n_imputed,
     has_variance = has_variance,
     items = items,
+    scale_bounds = scale_bounds,
     settings = pp
   )
 }

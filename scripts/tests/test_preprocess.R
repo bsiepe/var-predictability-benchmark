@@ -206,7 +206,7 @@ cat("zero-var: varying items retained: PASS\n")
 # 3. variance in invalid rows only: excluded
 cfg_strict <- list(preprocess = c(pp_base, list(min_obs_person = 1L)))
 df_inv <- data.frame(id = rep("p1", 4), day = c(1L, 2L, 2L, 2L),
-                      beep = c(1L, 1L, 2L, 3L), x1 = c(99, 2, 2, 2))
+                      beep = c(1L, 1L, 2L, 3L), x1 = c(5, 2, 2, 2))
 res <- preprocess_dataset(df_inv, features, cfg_strict, dataset_id = "test")
 stopifnot(nrow(res$excluded) == 1L, res$excluded$reason == "zero_var")
 cat("zero-var: variance only in invalid rows: excluded: PASS\n")
@@ -218,5 +218,72 @@ cfg_high <- list(preprocess = c(pp_base, list(min_obs_person = 99L,
 res <- preprocess_dataset(df_tiny, features, cfg_high, dataset_id = "test")
 stopifnot(nrow(res$excluded) == 1L, res$excluded$reason == "low_obs")
 cat("zero-var: too few obs -> reason is low_obs: PASS\n")
+
+# --- scale bounds tests ---
+
+cfg_bounds <- list(preprocess = c(pp_base, list(min_obs_person = 1L,
+                    lag_across_night = TRUE, lag_across_gaps = TRUE)))
+df_sum <- data.frame(id = rep("p1", 5), beep = 1:5, day = 1L,
+                     s1 = c(7, 10, 28, 15, 12), x1 = c(1, 2, 5, 3, 4))
+
+# 1. declared bounds override answer_categories and normalise into [0, 1]
+features_decl <- data.frame(name = c("s1", "x1"), answer_categories = c("4", "5"),
+                            scale_min = c(7, NA), scale_max = c(28, NA),
+                            stringsAsFactors = FALSE)
+res <- preprocess_dataset(df_sum, features_decl, cfg_bounds, dataset_id = "test")
+Y <- unname(res$persons[[1]]$Y)
+colnames(Y) <- c("s1", "x1")
+stopifnot(identical(res$scale_bounds$source, c("declared", "derived")),
+          isTRUE(all.equal(Y[, "s1"], (df_sum$s1 - 7) / 21)),
+          min(Y[, "s1"]) == 0, max(Y[, "s1"]) == 1)
+cat("scale bounds: declared bounds used: PASS\n")
+
+# 2. items without declared bounds keep the derived rule (floor of min, width n_cats - 1)
+stopifnot(res$scale_bounds$scale_min[2] == 1, res$scale_bounds$scale_max[2] == 5,
+          isTRUE(all.equal(Y[, "x1"], (df_sum$x1 - 1) / 4)))
+cat("scale bounds: undeclared items unchanged: PASS\n")
+
+# 3. declared scale_max <= scale_min is rejected
+features_bad <- features_decl
+features_bad$scale_max[1] <- 7
+caught <- tryCatch(preprocess_dataset(df_sum, features_bad, cfg_bounds, dataset_id = "test"),
+                   error = function(e) e)
+stopifnot(inherits(caught, "error"), grepl("scale_max <= scale_min", caught$message))
+cat("scale bounds: scale_max <= scale_min rejected: PASS\n")
+
+# 4. values outside the bounds are rejected, naming dataset and item
+features_narrow <- data.frame(name = c("s1", "x1"), answer_categories = c("4", "5"),
+                              stringsAsFactors = FALSE)
+caught <- tryCatch(preprocess_dataset(df_sum, features_narrow, cfg_bounds, dataset_id = "test"),
+                   error = function(e) e)
+stopifnot(inherits(caught, "error"), grepl("outside scale bounds", caught$message),
+          grepl("test", caught$message), grepl("s1", caught$message),
+          !grepl("x1", caught$message))
+cat("scale bounds: out-of-bounds values rejected: PASS\n")
+
+# 5. declared exception: flagged items may exceed their bounds, all other items stay guarded
+df_centred <- data.frame(id = rep("p1", 5), beep = 1:5, day = 1L,
+                         c1 = c(-3.5, 1.2, 4.1, -0.4, 0.8), x1 = c(1, 2, 5, 3, 4))
+features_exc <- data.frame(name = c("c1", "x1"), answer_categories = c("6", "5"),
+                           scale_min = c(-2.5, NA), scale_max = c(2.5, NA),
+                           allow_outside_bounds = c(TRUE, NA), stringsAsFactors = FALSE)
+res <- preprocess_dataset(df_centred, features_exc, cfg_bounds, dataset_id = "test")
+Y <- unname(res$persons[[1]]$Y)
+stopifnot(identical(res$scale_bounds$allow_outside, c(TRUE, FALSE)),
+          isTRUE(all.equal(Y[, 1], (df_centred$c1 + 2.5) / 5)),
+          max(Y[, 1]) > 1)
+df_centred$x1[3] <- 9
+caught <- tryCatch(preprocess_dataset(df_centred, features_exc, cfg_bounds, dataset_id = "test"),
+                   error = function(e) e)
+stopifnot(inherits(caught, "error"), grepl("x1", caught$message), !grepl("c1:", caught$message))
+cat("scale bounds: declared exception exempts only flagged items: PASS\n")
+
+# 6. the exception requires declared bounds
+features_exc_bad <- features_exc
+features_exc_bad$allow_outside_bounds <- c(TRUE, TRUE)
+caught <- tryCatch(preprocess_dataset(df_centred, features_exc_bad, cfg_bounds, dataset_id = "test"),
+                   error = function(e) e)
+stopifnot(inherits(caught, "error"), grepl("requires declared", caught$message))
+cat("scale bounds: exception without declared bounds rejected: PASS\n")
 
 cat("all preprocess tests passed\n")

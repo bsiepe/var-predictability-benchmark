@@ -98,8 +98,9 @@ dataset_modifiers[["0036"]] <- function(df, features) {
 # bounds follow from the codebook: https://openesmdata.org/datasets/0041_wright/
 dataset_modifiers[["0041"]] <- function(df, features) {
   # circumplex scores weight octant ratings (1-8) by cos/sin of 45-degree steps. the weights
-  # sum to zero, so controlling for overall endorsement leaves the extremes at +-7 * (1 + sqrt(2))
-  circ_max <- 7 * (1 + sqrt(2))
+  # sum to zero, so controlling for overall endorsement leaves the extremes at +-7 * (1 + sqrt(2)).
+  # the data are rounded to 2 decimals (extremes stored as +-16.9), so the bound is rounded up to match
+  circ_max <- ceiling(7 * (1 + sqrt(2)) * 100) / 100
   bounds <- data.frame(
     name = c("dominance", "affiliation", "stressed"),
     # stressed sums 7 events, each scored with four response labels

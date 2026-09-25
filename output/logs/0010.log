@@ -27,88 +27,48 @@ fitting ar...
 fitting var...
 fitting ml_ar...
 [ml_ar] boundary (singular) fit: see help('isSingular')
-
+[ml_ar] WARNING: Model failed to converge with max|grad| = 0.00363398 (tol = 0.002, component 1)
+  See ?lme4::convergence and ?lme4::troubleshooting.
 fitting ml_var...
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 fit 0010: 122 persons x 8 models

@@ -23,390 +23,200 @@ fitting mean...
 fitting locf...
 fitting trend...
 fitting ri...
-[ri] [ri] WARNING: Model failed to converge with max|grad| = 0.00316817 (tol = 0.002, component 1)
+[ri] WARNING: Model failed to converge with max|grad| = 0.00316817 (tol = 0.002, component 1)
   See ?lme4::convergence and ?lme4::troubleshooting.
-
 fitting ar...
 fitting var...
 fitting ml_ar...
 [ml_ar] boundary (singular) fit: see help('isSingular')
-
 [ml_ar] boundary (singular) fit: see help('isSingular')
-
 fitting ml_var...
 [ml_var] p=17 > max_p=12, using uncorrelated RE
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 fit 0034: 20 persons x 8 models

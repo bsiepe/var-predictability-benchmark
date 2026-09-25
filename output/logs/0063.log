@@ -24,356 +24,400 @@ fitting locf...
 fitting trend...
 fitting ri...
 fitting ar...
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[ar] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
 fitting var...
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+[var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
 fitting ml_ar...
 [ml_ar] boundary (singular) fit: see help('isSingular')
-
 [ml_ar] boundary (singular) fit: see help('isSingular')
-
 [ml_ar] boundary (singular) fit: see help('isSingular')
-
 [ml_ar] boundary (singular) fit: see help('isSingular')
-
 [ml_ar] boundary (singular) fit: see help('isSingular')
-
 [ml_ar] boundary (singular) fit: see help('isSingular')
-
 [ml_ar] boundary (singular) fit: see help('isSingular')
-
 [ml_ar] boundary (singular) fit: see help('isSingular')
-
 [ml_ar] boundary (singular) fit: see help('isSingular')
-
 fitting ml_var...
 [ml_var] p=15 > max_p=12, using uncorrelated RE
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 [ml_var] boundary (singular) fit: see help('isSingular')
-
 fit 0063: 70 persons x 8 models

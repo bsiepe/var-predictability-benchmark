@@ -56,6 +56,14 @@ model_labels <- c("Mean", "LOCF", "Trend", "RI", "AR", "VAR", "mlAR", "mlVAR")
 dat_oos <- combined |>
   filter(set == "oos", is.finite(rmse), rmse > 0) |>
   mutate(model = factor(model, levels = model_order, labels = model_labels))
+
+# plotting params
+decomp_models <- c("mean", "ar", "var", "ml_ar", "ml_var")
+component_levels <- c("Autoregression", "Cross-dynamics", "Pooling", "Total")
+path_levels <- c("A: cross-lags,\nthen pooling", "B: pooling,\nthen cross-lags")
+component_palette <- setNames(c(MetBrewer::met.brewer("Hiroshige")[c(9, 2, 7)], "grey45"),
+                              component_levels)
+
 ```
 
 # Descriptives
@@ -241,6 +249,64 @@ locf_gap |>
                caption = "IS - OOS RMSE gap per dataset. 'LOCF-specific' removes the baseline distributional gap (Mean gap) from the LOCF gap. Consistently positive values suggest a LOCF-specific mechanism beyond distributional IS/OOS differences.")
 ```
 
+```{r}
+#| label: fig-is-oos-barbell
+#| fig-cap: "In-sample and OOS RMSE per dataset and model. Points are means across persons. Rows are ordered by the gap of the mean model."
+#| fig-height: 10
+#| fig-width: 12
+
+barbell_labels <- dataset_meta |>
+  distinct(dataset_id, first_author, year) |>
+  mutate(dataset = paste0(first_author, " (", year, ")"),
+         dataset = if_else(duplicated(dataset) | duplicated(dataset, fromLast = TRUE),
+                           paste0(dataset, " [", dataset_id, "]"), dataset))
+
+is_oos <- combined |>
+  filter(set %in% c("in", "oos"), is.finite(rmse), rmse > 0) |>
+  select(dataset_id, id, model, set, rmse) |>
+  pivot_wider(names_from = set, values_from = rmse) |>
+  # persons enter only with both sets, so the dataset gap is paired
+  filter(is.finite(`in`), is.finite(oos)) |>
+  summarise(is = mean(`in`), oos = mean(oos), .by = c(dataset_id, model)) |>
+  left_join(barbell_labels, by = "dataset_id") |>
+  mutate(direction = if_else(oos > is, "OOS higher", "OOS lower"),
+         model = factor(model, levels = model_order, labels = model_labels))
+
+# largest mean-model gap at the top
+row_order <- is_oos |>
+  filter(model == "Mean") |>
+  arrange(oos - is) |>
+  pull(dataset)
+
+is_oos <- mutate(is_oos, dataset = factor(dataset, levels = union(row_order, dataset)))
+
+is_oos_points <- is_oos |>
+  pivot_longer(c(is, oos), names_to = "set", values_to = "rmse") |>
+  mutate(set = factor(set, levels = c("is", "oos"), labels = c("In-sample", "Out-of-sample")))
+
+# points beyond the cap are drawn at the cap and labelled with their value
+x_cap <- 0.4
+
+ggplot(is_oos, aes(y = dataset)) +
+  geom_segment(aes(x = pmin(is, x_cap), xend = pmin(oos, x_cap), colour = direction),
+               linewidth = 0.8) +
+  geom_point(data = is_oos_points, aes(x = pmin(rmse, x_cap), fill = set),
+             shape = 21, colour = "grey30", size = 1.8, stroke = 0.3) +
+  geom_text(data = filter(is_oos_points, rmse > x_cap),
+            aes(x = x_cap, label = sprintf("%.2f", rmse)),
+            hjust = 1.3, size = 2.5, colour = "grey20") +
+  scale_colour_manual(values = c("OOS higher" = "grey70",
+                                 "OOS lower" = component_palette[["Cross-dynamics"]]),
+                      name = NULL) +
+  scale_fill_manual(values = c("In-sample" = "white",
+                               "Out-of-sample" = component_palette[["Autoregression"]]),
+                    name = NULL) +
+  ggh4x::facet_wrap2(~ model, nrow = 2, axes = "all", remove_labels = "y") +
+  labs(x = "RMSE [0, 1]", y = NULL) +
+  theme_bs(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+
 
 
 
@@ -292,15 +358,6 @@ ggplot(dat_shrink, aes(x = person_model, y = rmse_ml)) +
 
 
 
-## Incremental RMSE reduction
-
-```{r}
-#| label: fig-incremental
-#| fig-cap: "Incremental OOS RMSE reduction at each step of the complexity ladder, with posterior credible intervals. Requires fitted brms model."
-#| eval: false
-# TODO: successive-difference contrasts from brms model (04_meta_regression.qmd)
-# posterior means + 80/95% intervals per complexity step
-```
 
 ## Heterogeneity across datasets
 
@@ -366,11 +423,7 @@ Here, we display total model improvement from the mean model to the most complex
 #| fig-height: 9
 #| fig-width: 11
 
-decomp_models <- c("mean", "ar", "var", "ml_ar", "ml_var")
-component_levels <- c("Autoregression", "Cross-dynamics", "Pooling", "Total")
-path_levels <- c("A: cross-lags,\nthen pooling", "B: pooling,\nthen cross-lags")
-component_palette <- setNames(c(MetBrewer::met.brewer("Hiroshige")[c(9, 2, 7)], "grey45"),
-                              component_levels)
+
 
 rmse_wide <- combined |>
   filter(set == "oos", model %in% decomp_models) |>
@@ -780,3 +833,5 @@ ggplot(preds, aes(x = .epred, y = reorder(dataset_label, .epred),
            colour = "grey90", linewidth = 0.3) +
   guides(colour = guide_legend(nrow = 1, byrow = TRUE))
 ```
+
+

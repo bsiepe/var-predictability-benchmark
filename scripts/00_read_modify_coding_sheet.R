@@ -12,6 +12,18 @@ coding_sheet_path <- here::here("data", "meta", "datasets.tsv")
 
 dataset_modifiers <- list()
 
+# items are person-mean centred in openESM, so only the width of the original scale is known.
+# RMSE depends only on that width, so the bounds span the original width around 0 and a
+# person at their own mean maps to 0.5. centred values can exceed these bounds, and positions
+# on the scale (floor/ceiling) are not meaningful for these items
+dataset_modifiers[["0002"]] <- function(df, features) {
+  centred <- c("sociable", "creative", "friendly", "organised", "self_esteem")
+  width <- as.integer(features$answer_categories[match(centred, features$name)]) - 1
+  bounds <- data.frame(name = centred, scale_min = -width / 2, scale_max = width / 2,
+                       allow_outside_bounds = TRUE, stringsAsFactors = FALSE)
+  list(df = df, features = dplyr::left_join(features, bounds, by = "name"))
+}
+
 dataset_modifiers[["0028"]] <- function(df, features) {
   composites <- list(
     paranoia   = list(cols = c("no_trust", "harm", "criticism"), ref = "no_trust"),
@@ -80,6 +92,22 @@ dataset_modifiers[["0036"]] <- function(df, features) {
   }))
 
   list(df = df, features = dplyr::bind_rows(features, new_rows))
+}
+
+# variables are pre-aggregated in openESM, and answer_categories describes the original items.
+# bounds follow from the codebook: https://openesmdata.org/datasets/0041_wright/
+dataset_modifiers[["0041"]] <- function(df, features) {
+  # circumplex scores weight octant ratings (1-8) by cos/sin of 45-degree steps. the weights
+  # sum to zero, so controlling for overall endorsement leaves the extremes at +-7 * (1 + sqrt(2))
+  circ_max <- 7 * (1 + sqrt(2))
+  bounds <- data.frame(
+    name = c("dominance", "affiliation", "stressed"),
+    # stressed sums 7 events, each scored with four response labels
+    scale_min = c(-circ_max, -circ_max, 0),
+    scale_max = c(circ_max, circ_max, 21),
+    stringsAsFactors = FALSE
+  )
+  list(df = df, features = dplyr::left_join(features, bounds, by = "name"))
 }
 
 dataset_modifiers[["0061"]] <- function(df, features) {

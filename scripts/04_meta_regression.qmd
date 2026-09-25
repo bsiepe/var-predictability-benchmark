@@ -48,7 +48,8 @@ df_meta <- readRDS(here::here("output", "meta", "combined.rds"))
 
 # Make passes TRUE when the upstream combined results changed
 # and direct renders reuse cached fits
-refit_models <- isTRUE(params$refit_models)
+# params only exists during knitr rendering, fall back to FALSE interactively
+refit_models <- isTRUE(if (exists("params")) params$refit_models else FALSE)
 
 ```
 
@@ -88,7 +89,6 @@ There are `r zeroes` true zeroes in the RMSE values. We can thus proceed with th
 
 ```{r}
 #| label: remove-zero
-
 df_meta <- df_meta |> 
   filter(mean_rmse != 0)
 ```
@@ -106,7 +106,7 @@ model_path <- here::here("output", "analysis", "fit_rmse_lognormal.rds")
 
 if (refit_models || !file.exists(model_path)) {
   fit_rmse_lognormal <- brm(
-    mean_rmse ~ 1 + model + (1 | dataset_id) + (1 | unique_id),
+    mean_rmse ~ 1 + model + (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
     data = df_meta,
     family = lognormal(),
     chains = 4,
@@ -160,7 +160,8 @@ model_path <- here::here("output", "analysis", "fit_rmse_lognormal_timepoint.rds
 
 if (refit_models || !file.exists(model_path)) {
   fit_rmse_lognormal_timepoint <- brm(
-    mean_rmse ~ 1 + model + n_valid_person + (1 | dataset_id) + (1 | unique_id),
+    mean_rmse ~ 1 + model + n_valid_person + (1 | dataset_id) + (1 | dataset_id:model) +
+      (1 | unique_id),
     data = df_meta,
     family = lognormal(),
     chains = 4,
@@ -186,7 +187,8 @@ model_path <- here::here("output", "analysis", "fit_rmse_lognormal_timepoint_int
 
 if (refit_models || !file.exists(model_path)) {
   fit_rmse_lognormal_timepoint_interaction <- brm(
-    mean_rmse ~ 1 + model * n_valid_person + (1 | dataset_id) + (1 | unique_id),
+    mean_rmse ~ 1 + model * n_valid_person + (1 | dataset_id) + (1 | dataset_id:model) +
+      (1 | unique_id),
     data = df_meta,
     family = lognormal(),
     chains = 4,

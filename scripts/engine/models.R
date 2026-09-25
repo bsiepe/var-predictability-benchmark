@@ -84,15 +84,31 @@ ri_predict <- function(fitted, test_person) {
   Yhat
 }
 
+#------------ OLS helper
+# least-squares coefficients with aliased coefficients set to 0. a column is aliased when it is
+# collinear with others in the training window (e.g. a constant lagged item, or p + 1 > n).
+# setting it to 0 gives the least-squares solution on the reduced design, as predict.lm() does
+.ols_coefs <- function(X, Y) {
+  coefs <- stats::lm.fit(X, Y)$coefficients
+  aliased <- is.na(coefs)
+  coefs[aliased] <- 0
+  list(coefs = coefs, aliased = any(aliased))
+}
+
+# raised at most once per fit call, so counts equal the number of affected fits
+.warn_rank_deficient <- function() {
+  warning("rank-deficient OLS fit: aliased coefficients set to 0", call. = FALSE)
+}
+
 #------------ Autoregressive models
 # Person-specific autoregressive model fit by OLS
 ar_fit <- function(train, spec) {
   rows <- train$valid
   Y <- train$Y[rows, , drop = FALSE]
   Yl <- train$Ylag[rows, , drop = FALSE]
-  coefs <- vapply(seq_len(ncol(Y)), function(v) {
-    stats::lm.fit(cbind(1, Yl[, v]), Y[, v])$coefficients
-  }, numeric(2))
+  fits <- lapply(seq_len(ncol(Y)), function(v) .ols_coefs(cbind(1, Yl[, v]), Y[, v]))
+  if (any(vapply(fits, `[[`, logical(1), "aliased"))) .warn_rank_deficient()
+  coefs <- vapply(fits, `[[`, numeric(2), "coefs")
   colnames(coefs) <- colnames(Y)
   list(coefs = coefs)
 }
@@ -120,23 +136,15 @@ ml_ar_fit <- function(train_persons, spec) {
   df <- dplyr::bind_rows(rows)
   vars <- colnames(train_persons[[1]]$Y)
   fits <- list()
-  warns <- character(0)
-  # fit for each variable separately
+  # fit for each variable separately. lme4 warnings propagate to run_dataset(), which logs and counts them
   for (v in vars) {
     lag_v <- paste0(v, "_lag")
-    fit_result <- withCallingHandlers(
-      lme4::lmer(
-        stats::as.formula(paste0("`", v, "` ~ 1 + `", lag_v, "` + (1 + `", lag_v, "` | id)")),
-        data = df
-      ),
-      warning = function(w) {
-        warns <<- c(warns, conditionMessage(w))
-        invokeRestart("muffleWarning")
-      }
+    fits[[v]] <- lme4::lmer(
+      stats::as.formula(paste0("`", v, "` ~ 1 + `", lag_v, "` + (1 + `", lag_v, "` | id)")),
+      data = df
     )
-    fits[[v]] <- fit_result
   }
-  list(models = fits, warnings = warns)
+  list(models = fits)
 }
 
 ml_ar_predict <- function(fitted, test_person) {
@@ -160,7 +168,9 @@ var_fit <- function(train, spec) {
   rows <- train$valid
   Y <- train$Y[rows, , drop = FALSE]
   Yl <- train$Ylag[rows, , drop = FALSE]
-  list(coefs = stats::lm.fit(cbind(1, Yl), Y)$coefficients)
+  fit <- .ols_coefs(cbind(1, Yl), Y)
+  if (fit$aliased) .warn_rank_deficient()
+  list(coefs = fit$coefs)
 }
 
 var_predict <- function(fitted, test) {
@@ -189,18 +199,11 @@ ml_var_fit <- function(train_persons, spec) {
   vars <- colnames(train_persons[[1]]$Y)
   lag_vars <- paste0(vars, "_lag")
   fits <- list()
-  warns <- character(0)
+  # lme4 warnings propagate to run_dataset(), which logs and counts them
   for (v in vars) {
-    fit_result <- withCallingHandlers(
-      lme4::lmer(.ml_var_formula(v, lag_vars, re_corr), data = df),
-      warning = function(w) {
-        warns <<- c(warns, conditionMessage(w))
-        invokeRestart("muffleWarning")
-      }
-    )
-    fits[[v]] <- fit_result
+    fits[[v]] <- lme4::lmer(.ml_var_formula(v, lag_vars, re_corr), data = df)
   }
-  list(models = fits, warnings = warns)
+  list(models = fits)
 }
 
 ml_var_predict <- function(fitted, test_person) {

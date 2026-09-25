@@ -48,6 +48,7 @@ combined <- readRDS(here("output", "meta", "combined.rds"))
 metrics <- readRDS(here("output", "analysis", "metrics.rds"))
 dataset_meta <- readRDS(here("output", "analysis", "dataset_meta.rds"))
 features <- readRDS(here("output", "analysis", "features.rds"))
+fit_issues <- readRDS(here("output", "analysis", "fit_issues.rds"))
 
 model_order <- c("mean", "locf", "trend", "ri", "ar", "var", "ml_ar", "ml_var")
 model_labels <- c("Mean", "LOCF", "Trend", "RI", "AR", "VAR", "mlAR", "mlVAR")
@@ -65,21 +66,82 @@ dat_oos <- combined |>
 
 ```{r}
 #| label: tbl-sample
-# TODO: sample summary table (datasets × persons × items × timepoints)
+#| tbl-cap: "Sample overview per dataset. Valid observations are timepoints with complete responses and a usable lag."
+
+person_n <- combined |>
+  distinct(dataset_id, id, n_valid_person, n_total_person) |>
+  summarise(valid_median = median(n_valid_person), valid_min = min(n_valid_person),
+            valid_max = max(n_valid_person), rows_median = median(n_total_person),
+            .by = dataset_id)
+
+dataset_meta |>
+  left_join(person_n, by = "dataset_id") |>
+  arrange(first_author, year) |>
+  mutate(dataset = paste0(first_author, " (", year, ")"),
+         valid = sprintf("%g [%g, %g]", valid_median, valid_min, valid_max)) |>
+  select(dataset, n_beeps_per_day, n_persons_kept, n_persons_excluded, n_items,
+         valid, rows_median) |>
+  knitr::kable(col.names = c("Dataset", "Beeps per day", "Persons", "Excluded", "Items",
+                             "Valid obs. per person, median [range]", "Rows per person, median"))
 ```
 
 ## Exclusions
 
 ```{r}
 #| label: tbl-exclusions
-# TODO: exclusion counts by reason (low_obs, zero_var)
+#| tbl-cap: "Persons included and excluded per dataset, by reason."
+
+dataset_meta |>
+  arrange(first_author, year) |>
+  mutate(dataset = paste0(first_author, " (", year, ")")) |>
+  select(dataset, n_persons_kept, n_excluded_low_obs, n_excluded_zero_var) |>
+  knitr::kable(col.names = c("Dataset", "Included", "Excluded: too few valid obs.",
+                             "Excluded: zero variance"))
 ```
 
 ## Non-Convergence
 
 ```{r}
-#| label: nonconvergence
-# TODO: tabulate non-convergence counts by model and dataset
+#| label: tbl-nonconvergence
+#| tbl-cap: "Estimation issues per dataset. Rank-deficient fits are the share of person-level OLS fits with aliased coefficients (set to 0). Singular fits are the share of lmer fits (one per item and fit step). Convergence and other warnings are counts of warnings."
+
+ols_models <- c("ar", "var")
+ml_models <- c("ri", "ml_ar", "ml_var")
+
+# share of affected fits for one issue type, one column per model
+issue_share <- function(models, issue, labels, prefix) {
+  fit_issues |>
+    filter(model %in% models, type == issue) |>
+    mutate(share = sprintf("%.0f%%", 100 * n / n_fits),
+           model = paste(prefix, factor(model, levels = models, labels = labels))) |>
+    select(dataset_id, model, share) |>
+    pivot_wider(names_from = model, values_from = share)
+}
+
+rank_deficient <- issue_share(ols_models, "rank_deficient", c("AR", "VAR"), "Rank-deficient:")
+singular <- issue_share(ml_models, "singular", c("RI", "mlAR", "mlVAR"), "Singular:")
+
+other_issues <- fit_issues |>
+  summarise(`Convergence warnings` = sum(n[type == "convergence"]),
+            `Other warnings` = sum(n[type == "other"]), .by = dataset_id)
+
+failed <- dataset_meta |>
+  mutate(failed = vapply(model_failures, function(f) {
+    paste(model_labels[match(names(f)[f], model_order)], collapse = ", ")
+  }, character(1))) |>
+  select(dataset_id, first_author, year, failed, ml_var_uncorrelated)
+
+failed |>
+  left_join(rank_deficient, by = "dataset_id") |>
+  left_join(singular, by = "dataset_id") |>
+  left_join(other_issues, by = "dataset_id") |>
+  arrange(first_author, year) |>
+  mutate(Dataset = paste0(first_author, " (", year, ")"),
+         `Failed models` = failed,
+         `mlVAR uncorrelated RE` = if_else(ml_var_uncorrelated, "yes", "no")) |>
+  select(Dataset, starts_with("Rank-deficient"), starts_with("Singular"),
+         `Convergence warnings`, `Other warnings`, `Failed models`, `mlVAR uncorrelated RE`) |>
+  knitr::kable()
 ```
 
 
@@ -554,6 +616,117 @@ ggplot(gallery_series, aes(x = t, y = y)) +
   coord_cartesian(ylim = c(0, 1)) +
   labs(x = "Measurement occasion", y = "Response [0, 1]") +
   theme_bs(base_size = 11)
+```
+
+## Absolute vs. relative performance
+
+```{r}
+#| label: fig-absolute-relative
+#| fig-cap: "Person-level OOS RMSE of mlVAR by within-person variability, coloured by skill relative to the mean model."
+#| fig-height: 5
+#| fig-width: 8
+
+skill_lim <- 0.3
+
+abs_rel <- person_skill |>
+  left_join(select(features$person, dataset_id, id, sd_obs_mean), by = c("dataset_id", "id"))
+
+stopifnot(!anyNA(abs_rel$sd_obs_mean))
+
+r_sd_rmse <- cor(abs_rel$sd_obs_mean, abs_rel$rmse_ml_var)
+
+ggplot(abs_rel, aes(x = sd_obs_mean, y = rmse_ml_var, colour = skill)) +
+  geom_point(alpha = 0.6, size = 1) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, colour = "grey20",
+              linewidth = 0.8) +
+  annotate("text", x = -Inf, y = Inf, label = sprintf("r = %.2f", r_sd_rmse),
+           hjust = -0.2, vjust = 1.5, size = 4, colour = "grey20") +
+  scale_colour_gradient2(low = component_palette[["Cross-dynamics"]], mid = "grey85",
+                         high = component_palette[["Autoregression"]], midpoint = 0,
+                         limits = c(-skill_lim, skill_lim), oob = scales::oob_squish,
+                         name = "Skill vs. mean") +
+  coord_cartesian(xlim = c(0, NA), ylim = c(0, NA), expand = FALSE) +
+  labs(x = "Within-person SD (mean across items)", y = "OOS RMSE of mlVAR [0, 1]") +
+  theme_bs() +
+  theme(legend.position = "right")
+```
+
+This strong correlation suggests that the absolute performance of mlVAR is largely determined by the within-person variability of the series. 
+
+
+## Model selection by in-sample fit
+
+```{r}
+#| label: fig-is-oos-selection
+#| fig-cap: "Share of persons for whom each model has the lowest in-sample and out-of-sample RMSE. Numbers are counts of persons."
+#| fig-height: 5
+#| fig-width: 8
+
+best_model <- combined |>
+  filter(set %in% c("in", "oos"), is.finite(rmse), rmse > 0) |>
+  mutate(n_model_sets = n_distinct(model, set), .by = c(dataset_id, id)) |>
+  # a person's best model is only comparable if all models have a finite RMSE in both sets
+  filter(n_model_sets == length(model_order) * 2) |>
+  # for each person, select the model with the lowest RMSE in each set
+  slice_min(rmse, n = 1, with_ties = FALSE, by = c(dataset_id, id, set)) |>
+  select(dataset_id, id, set, model) |>
+  pivot_wider(names_from = set, values_from = model)
+
+selection <- best_model |>
+  pivot_longer(c(`in`, oos), names_to = "set", values_to = "model") |>
+  count(set, model) |>
+  complete(set, model = model_order, fill = list(n = 0)) |>
+  mutate(share = n / sum(n), .by = set) |>
+  mutate(model = factor(model, levels = model_order, labels = model_labels),
+         set = factor(set, levels = c("in", "oos"), labels = c("In-sample", "Out-of-sample")))
+
+ggplot(selection, aes(x = model, y = share, fill = set)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.75) +
+  geom_text(aes(label = if_else(n > 0, as.character(n), ""), y = share),
+            position = position_dodge(width = 0.8), vjust = -0.5, size = 3, colour = "grey20") +
+  scale_fill_manual(values = c("In-sample" = "grey75",
+                               "Out-of-sample" = component_palette[["Autoregression"]]),
+                    name = NULL) +
+  scale_y_continuous(labels = scales::label_percent(), limits = c(0, 1.05), expand = c(0, 0)) +
+  labs(x = NULL, y = "Share of persons with lowest RMSE") +
+  theme_bs()
+```
+
+## Regret relative to the best model per person
+
+```{r}
+#| label: fig-regret
+#| fig-cap: "OOS regret per person: RMSE of each model minus the RMSE of that person's best model."
+#| fig-height: 5.5
+
+regret_cap <- 0.1
+
+regret <- combined |>
+  filter(set == "oos", is.finite(rmse), rmse > 0) |>
+  mutate(n_models = n_distinct(model), .by = c(dataset_id, id)) |>
+  # regret is only comparable if all models have a finite OOS RMSE
+  filter(n_models == length(model_order)) |>
+  mutate(regret = rmse - min(rmse), .by = c(dataset_id, id)) |>
+  mutate(model = factor(model, levels = model_order, labels = model_labels))
+
+regret_out <- regret |>
+  filter(regret > regret_cap) |>
+  count(model, name = "n_out")
+
+ggplot(regret, aes(x = model, y = regret)) +
+  ggdist::stat_halfeye(
+    adjust = 1, width = 0.5, justification = -0.2,
+    .width = 0, point_colour = NA,
+    fill = "#A0B4C8", alpha = 0.7
+  ) +
+  geom_boxplot(width = 0.15, outlier.shape = NA, alpha = 0.5) +
+  geom_jitter(width = 0.05, alpha = 0.15, size = 0.8, colour = "#2C3E50") +
+  geom_text(data = regret_out,
+            aes(x = model, y = regret_cap * 0.97, label = paste0("n = ", n_out, " above")),
+            size = 3, colour = "grey30", inherit.aes = FALSE) +
+  coord_cartesian(ylim = c(0, regret_cap), expand = FALSE) +
+  labs(x = NULL, y = "OOS regret [0, 1] (0 = best model for that person)") +
+  theme_bs()
 ```
 
 

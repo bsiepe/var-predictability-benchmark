@@ -59,7 +59,10 @@ dataset_meta <- map(results, function(r) {
     dataset_id = r$dataset_id,
     n_persons_kept = r$meta$n_person,
     n_persons_excluded  = nrow(r$meta$excluded),
+    n_excluded_low_obs = sum(r$meta$excluded$reason == "low_obs"),
+    n_excluded_zero_var = sum(r$meta$excluded$reason == "zero_var"),
     n_items = length(unique(r$metrics_var$variable)),
+    ml_var_uncorrelated = r$meta$ml_var_uncorrelated %||% NA,
     model_failures = list(r$meta$model_failures)  # named logical vector; unnest to analyse
   )
 }) |>
@@ -89,8 +92,24 @@ person_meta <- purrr::map(results, function(r) {
   )
 }) |> dplyr::bind_rows()
 
+# --- fitting issues (lme4 singular fits, convergence warnings) ---
+# n_fits is the denominator per model level: person-level fit calls for person-level models,
+# lmer calls (one per item and fit step) for dataset-level models
+fit_issues <- map(results, function(r) {
+  if (is.null(r$meta$fit_issues)) return(NULL)
+  mutate(r$meta$fit_issues, dataset_id = r$dataset_id,
+         n_fits = if_else(level == "person", r$meta$n_person_fits,
+                          r$meta$n_fit_steps * r$meta$p),
+         .before = 1)
+}) |>
+  bind_rows()
+missing_issues <- map_chr(keep(results, \(r) is.null(r$meta$fit_issues)), "dataset_id")
+if (length(missing_issues) > 0)
+  warning("missing fit_issues (re-run fit_one.R): ", paste(missing_issues, collapse = ", "))
+
 # --- save ---
 dir.create(here("output", "analysis"), showWarnings = FALSE, recursive = TRUE)
+saveRDS(fit_issues, here("output", "analysis", "fit_issues.rds"))
 saveRDS(metrics, here("output", "analysis", "metrics.rds"))
 saveRDS(dataset_meta, here("output", "analysis", "dataset_meta.rds"))
 # factor written as character in CSV; load RDS to preserve level order

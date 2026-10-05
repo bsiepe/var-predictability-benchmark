@@ -74,7 +74,7 @@ features: $(FEATURES)
 
 reports: meta features
 	quarto render scripts/05_results.qmd
-	quarto render scripts/02_descriptives.qmd
+	quarto render scripts/01_descriptives.qmd
 
 # ---- Housekeeping --------------------------------------------------------------
 restore:

@@ -100,6 +100,11 @@ cat("empty OOS output rejected: PASS\n")
             abs(pf$item$rho1_train - cor(y[expected_t], y[expected_t - 1])) < 1e-12,
             pf$person$n_train_first == 23)  # valid rows 2..25 except 10; includes imputed row 11
   cat("rho1_train excludes imputed lags: PASS\n")
+
+  # 11. sd_train uses observed values before the first origin only
+  stopifnot(abs(pf$item$sd_train - sd(y[1:25], na.rm = TRUE)) < 1e-12,
+            abs(pf$item$sd_obs - sd(y, na.rm = TRUE)) < 1e-12)
+  cat("sd_train uses the training window only: PASS\n")
 }
 
 cat("all feature tests passed\n")

@@ -32,9 +32,14 @@ DATASET_IDS  := $(shell $(RSCRIPT) --vanilla -e \
 INTERIM      := $(patsubst %,data/interim/%.rds,$(DATASET_IDS))
 RESULTS      := $(patsubst %,output/results/%.rds,$(DATASET_IDS))
 FEATURES     := output/analysis/features.rds
-META_MODELS  := output/analysis/fit_rmse_lognormal.rds \
-				output/analysis/fit_rmse_lognormal_timepoint.rds \
-				output/analysis/fit_rmse_lognormal_timepoint_interaction.rds
+META_MODELS  := output/analysis/fit_relmse_m1.rds \
+				output/analysis/fit_relmse_m2.rds \
+				output/analysis/fit_relmse_m3.rds \
+				output/analysis/fit_relmse_m1_prior.rds \
+				output/analysis/fit_relmse_s1.rds \
+				output/analysis/fit_relmse_s1_prior.rds \
+				output/analysis/fit_relmse_s4.rds \
+				output/analysis/fit_relmse_s4_prior.rds
 
 # ---- Phony targets -------------------------------------------------------------
 .PHONY: all preprocess fit meta features reports clean rerun restore
@@ -51,12 +56,13 @@ output/results/%.rds: data/interim/%.rds $(ENGINE_DEPS)
 	$(RSCRIPT) scripts/fit_one.R $* > output/logs/$*.log 2>&1
 
 # ---- Aggregation & reports -----------------------------------------------------
-output/meta/combined.rds: $(RESULTS) scripts/03_collect_results.R
+output/meta/combined.rds: $(RESULTS) scripts/03_collect_results.R scripts/engine/relative.R
 	$(RSCRIPT) scripts/03_collect_results.R
 
 meta: $(META_MODELS)
 
-$(META_MODELS) &: output/meta/combined.rds scripts/04_meta_regression.qmd
+$(META_MODELS) &: output/meta/combined.rds $(FEATURES) scripts/04_meta_regression.qmd \
+                  scripts/engine/relative.R
 	quarto render scripts/04_meta_regression.qmd -P refit_models:true
 
 # series features and time-indexed OOS predictions; needs both interim and result caches

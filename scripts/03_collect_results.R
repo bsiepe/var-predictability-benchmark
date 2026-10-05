@@ -5,6 +5,7 @@
 #   output/analysis/metrics.rds: person x model x variable x set (primary table)
 #   output/analysis/metrics.csv: same, for inspection / cross-tool use
 #   output/analysis/dataset_meta.rds: dataset-level summary with nested model_failures
+#   output/analysis/fit_times.rds: cpu and elapsed seconds per dataset x model
 #   output/analysis/rel_mse_drops.rds: undefined relative MSE per dataset x model x reason
 #   output/meta/combined.rds: person x model x set with R2, RMSE, relative MSE, n, and moderators
 
@@ -36,8 +37,8 @@ results <- discard(results, \(r) is.null(r$metrics_var))
 if (length(results) == 0) stop("no usable result files after filtering")
 
 # --- primary metrics table ---
-# globally-constant persons removed in preprocessing; fold-level ss_tot == 0
-# produces R² = NA via compute_metrics() guard
+# globally-constant persons removed in preprocessing. an item with ss_tot == 0 gives a
+# non-finite R2_by_variable
 metrics <- map(results, \(r) mutate(r$metrics_var, dataset_id = r$dataset_id,
                                     id = as.character(id),
                                     .before = 1)) |>
@@ -109,9 +110,24 @@ missing_issues <- map_chr(keep(results, \(r) is.null(r$meta$fit_issues)), "datas
 if (length(missing_issues) > 0)
   warning("missing fit_issues (re-run fit_one.R): ", paste(missing_issues, collapse = ", "))
 
+# --- computation time per dataset x model ---
+# n_fits as for fit_issues, so that times can be compared per fit across datasets
+fit_times <- map(results, function(r) {
+  if (is.null(r$meta$fit_time)) return(NULL)
+  mutate(r$meta$fit_time, dataset_id = r$dataset_id, cpu = r$meta$machine$cpu,
+         n_fits = if_else(level == "person", r$meta$n_person_fits,
+                          r$meta$n_fit_steps * r$meta$p),
+         .before = 1)
+}) |>
+  bind_rows()
+missing_times <- map_chr(keep(results, \(r) is.null(r$meta$fit_time)), "dataset_id")
+if (length(missing_times) > 0)
+  warning("missing fit_time (re-run fit_one.R): ", paste(missing_times, collapse = ", "))
+
 # --- save ---
 dir.create(here("output", "analysis"), showWarnings = FALSE, recursive = TRUE)
 saveRDS(fit_issues, here("output", "analysis", "fit_issues.rds"))
+saveRDS(fit_times, here("output", "analysis", "fit_times.rds"))
 saveRDS(metrics, here("output", "analysis", "metrics.rds"))
 saveRDS(dataset_meta, here("output", "analysis", "dataset_meta.rds"))
 # factor written as character in CSV; load RDS to preserve level order

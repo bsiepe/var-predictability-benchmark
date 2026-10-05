@@ -23,7 +23,8 @@ interim <- preprocess_dataset(mock$data, mock$meta, cfg, dataset_id = "mock01")
 persons <- interim$persons
 
 oos <- crossval_model(persons, gm, cfg$cv)
-met <- compute_metrics(oos)$by_id
+met <- compute_metrics(oos) |>
+  dplyr::summarise(R2 = 1 - sum(ss_res) / sum(ss_tot), .by = c(id, set))
 
 gm_in <- mean(met$R2[met$set == "in"])
 gm_oos <- mean(met$R2[met$set == "oos"])

@@ -13,6 +13,16 @@
 # write to the log directly, so that the message handler below does not capture it again
 .log_line <- function(...) cat(sprintf(...), "\n", sep = "", file = stderr())
 
+# cpu model for reporting computation times. /proc/cpuinfo is a read-only virtual file on linux,
+# so this needs no rights and creates nothing. NA where it does not exist or cannot be read
+.cpu_model <- function() {
+  lines <- tryCatch(readLines("/proc/cpuinfo", warn = FALSE), error = function(e) character(0),
+                    warning = function(w) character(0))
+  line <- grep("^model name", lines, value = TRUE)
+  if (length(line) == 0) return(NA_character_)
+  trimws(sub(".*:", "", line[1]))
+}
+
 run_dataset <- function(interim, cfg) {
   persons <- interim$persons
   stopifnot(length(persons) > 0)
@@ -39,18 +49,14 @@ run_dataset <- function(interim, cfg) {
 
     # capture warnings, messages, and errors; continue on all
     issues <- character(0)
+    start <- proc.time()
     result <- tryCatch(
       withCallingHandlers(
         {
           oos <- crossval_model(persons, model, cfg$cv, spec = spec)
-          m_out <- compute_metrics(oos)
-          metrics <- m_out$by_id
-          metrics$model <- m
-          metrics$label <- model$label
-          metrics_var <- m_out$by_id_variable
+          metrics_var <- compute_metrics(oos)
           metrics_var$model <- m
-          list(metrics = metrics, metrics_var = metrics_var,
-               oos = cbind(model = m, oos), failed = FALSE)
+          list(metrics_var = metrics_var, oos = cbind(model = m, oos), failed = FALSE)
         },
         warning = function(w) {
           issues <<- c(issues, conditionMessage(w))
@@ -74,6 +80,12 @@ run_dataset <- function(interim, cfg) {
              failed = TRUE)
       }
     )
+    # cpu time is robust to other jobs running in parallel on the same machine, elapsed time is not.
+    # includes all cross-validation refits and failed attempts
+    used <- proc.time() - start
+    result$fit_time <- data.frame(model = m, level = model$level,
+                                  cpu_sec = unname(used["user.self"] + used["sys.self"]),
+                                  elapsed_sec = unname(used["elapsed"]))
 
     counts <- table(factor(.classify_fit_issue(issues), levels = .fit_issue_types))
     result$fit_issues <- data.frame(model = m, level = model$level, type = names(counts),
@@ -89,7 +101,6 @@ run_dataset <- function(interim, cfg) {
 
   list(
     dataset_id = interim$dataset_id,
-    metrics = dplyr::bind_rows(purrr::map(per_model, "metrics")),
     metrics_var = dplyr::bind_rows(purrr::map(per_model, "metrics_var")),
     oos = dplyr::bind_rows(purrr::map(per_model, "oos")),
     meta = list(
@@ -106,7 +117,11 @@ run_dataset <- function(interim, cfg) {
       n_fit_steps = n_fit_steps,
       n_person_fits = n_person_fits,
       p = length(interim$items),
-      ml_var_uncorrelated = ml_var_uncorrelated
+      ml_var_uncorrelated = ml_var_uncorrelated,
+      # computation time per model, only comparable between models run on the same machine
+      fit_time = dplyr::bind_rows(purrr::map(per_model, "fit_time")),
+      machine = list(cpu = .cpu_model(), nodename = Sys.info()[["nodename"]],
+                     session = utils::sessionInfo())
     )
   )
 }

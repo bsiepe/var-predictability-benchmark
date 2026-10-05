@@ -19,16 +19,8 @@
     )
 }
 
-# Compute R2 and standardized RMSE by person and variable
+# Sums of squares by person and variable. Person-level aggregates are built in
+# 03_collect_results.R, so that changing them never requires a refit
 compute_metrics <- function(oos_table) {
-  pv <- .ss_by_pv(oos_table)
-  by_id <- pv |>
-    dplyr::summarise(ss_res = sum(ss_res), ss_tot = sum(ss_tot), n = sum(n),
-                     .by = c(id, set)) |>
-    dplyr::mutate(
-      R2 = ifelse(ss_tot > 0, 1 - ss_res / ss_tot, NA_real_),
-      stdRMSE = sqrt(ss_res / n)
-    ) |>
-    dplyr::select(id, set, R2, stdRMSE, n)
-  list(by_id = by_id, by_id_variable = pv)
+  .ss_by_pv(oos_table)
 }

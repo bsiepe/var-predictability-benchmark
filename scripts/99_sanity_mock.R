@@ -21,7 +21,9 @@ result <- run_dataset(interim, cfg)
 kept <- names(interim$persons)
 truth_R2 <- mean(unlist(mock$truth[kept])^2)
 
-met <- result$metrics
+# person-level R2 pooled over items, as in 03_collect_results.R
+met <- result$metrics_var |>
+  dplyr::summarise(R2 = 1 - sum(ss_res) / sum(ss_tot), .by = c(id, model, set))
 agg <- function(model, set) mean(met$R2[met$model == model & met$set == set], na.rm = TRUE)
 
 cat(sprintf("\nPersons kept: %d / %d  (excluded: %s)\n",

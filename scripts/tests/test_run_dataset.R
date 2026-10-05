@@ -49,4 +49,9 @@ result_corr <- suppressMessages(run_dataset(interim, cfg_small))
 stopifnot(isFALSE(result_corr$meta$ml_var_uncorrelated))
 cat("ml_var_uncorrelated flag recorded: PASS\n")
 
+# 5. one non-negative computation time per model
+times <- result$meta$fit_time
+stopifnot(setequal(times$model, cfg_small$active_models), all(times$cpu_sec >= 0))
+cat("fit_time recorded per model: PASS\n")
+
 cat("all run_dataset tests passed\n")

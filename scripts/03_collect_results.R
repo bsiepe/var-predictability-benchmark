@@ -5,12 +5,14 @@
 #   output/analysis/metrics.rds: person x model x variable x set (primary table)
 #   output/analysis/metrics.csv: same, for inspection / cross-tool use
 #   output/analysis/dataset_meta.rds: dataset-level summary with nested model_failures
-#   output/meta/combined.rds: person x model x set with R2, RMSE, n, and moderators
+#   output/analysis/rel_mse_drops.rds: undefined relative MSE per dataset x model x reason
+#   output/meta/combined.rds: person x model x set with R2, RMSE, relative MSE, n, and moderators
 
 library(here)
 library(dplyr)
 library(purrr)
 library(readr)
+source(here("scripts", "engine", "relative.R"))
 
 MODEL_LEVELS <- c("mean", "locf", "trend", "ri", "ar", "var", "ml_ar", "ml_var")
 
@@ -119,6 +121,18 @@ write_csv(mutate(metrics, model = as.character(model)),
 message(sprintf("collected %d datasets, %d rows in metrics",
                 nrow(dataset_meta), nrow(metrics)))
 
+# --- accuracy relative to the rolling mean model ---
+relative <- relative_mse(metrics)
+
+rel_mse_drops <- relative |>
+  filter(!is.na(reason_na)) |>
+  count(dataset_id, model, set, reason_na)
+saveRDS(rel_mse_drops, here("output", "analysis", "rel_mse_drops.rds"))
+if (nrow(rel_mse_drops) > 0) {
+  message("undefined relative MSE (person x model x set rows):")
+  print(count(rel_mse_drops, set, reason_na, wt = n))
+}
+
 # --- person-level aggregation for meta-analysis ---
 person_metrics <- metrics |>
   group_by(dataset_id, id, model, set) |>
@@ -128,6 +142,7 @@ person_metrics <- metrics |>
     n    = sum(n),
     .groups = "drop"
   ) |>
+  left_join(relative, by = c("dataset_id", "id", "model", "set")) |>
   left_join(
     select(dataset_meta, dataset_id, first_author, year,
            n_beeps_per_day, n_time_points, n_participants,

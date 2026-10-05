@@ -62,12 +62,15 @@ person_features <- function(person_data, cv, ds_id) {
   item <- dplyr::bind_rows(lapply(seq_along(items), function(v) {
     y <- Y[, v]
     obs <- !is.na(y)
+    obs_train <- obs & in_train
     ok <- observed_lag_pairs(v, v)
     dplyr::tibble(
       id = id,
       variable = items[v],
       n_obs = sum(obs),
       sd_obs = if (sum(obs) > 1) stats::sd(y[obs]) else NA_real_,
+      # training window only, so it shares no noise with the OOS errors
+      sd_train = if (sum(obs_train) > 1) stats::sd(y[obs_train]) else NA_real_,
       # items are range01-rescaled to their scale limits, so bounds are 0 and 1
       prop_bound = mean(abs(y[obs]) < 1e-8 | abs(y[obs] - 1) < 1e-8),
       rho1_train = cor_or_na(y[ok], Yprev[ok, v]),
@@ -96,6 +99,7 @@ person_features <- function(person_data, cv, ds_id) {
     obs_per_var_eq_par = n_train_first / (length(items) + 1),
     cross_lag_train = cross_lag_train,
     sd_obs_mean = mean(item$sd_obs, na.rm = TRUE),
+    sd_train_mean = mean(item$sd_train, na.rm = TRUE),
     prop_bound_mean = mean(item$prop_bound, na.rm = TRUE),
     rho1_train_mean = mean(item$rho1_train, na.rm = TRUE)
   )

@@ -8,6 +8,10 @@
 data/raw/
 data/interim/
 
+# brms fits are large and reproducible with `make meta`
+output/analysis/fit_relmse_*.rds
+output/analysis/fit_rmse_*.rds
+
 # Quarto / knitr
 /.quarto/
 *_files/

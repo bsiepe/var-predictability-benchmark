@@ -1,0 +1,3 @@
+# LF line endings for all text files, on Windows and on the server alike
+* text=auto eol=lf
+*.rds binary

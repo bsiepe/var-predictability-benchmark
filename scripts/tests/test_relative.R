@@ -25,7 +25,9 @@ metrics <- dplyr::bind_rows(
   item_rows("p4", "mean", c(0.04, 0.01)),
   item_rows("p4", "ar", 0.02, n = 10, variable = "x1"),  # no predictions for x2
   item_rows("p5", "mean", c(0.04, 0.01)),
-  item_rows("p5", "ar", c(0.02, 0.01), n = c(0, 10))     # x2 scored, x1 has no test rows
+  item_rows("p5", "ar", c(0.02, 0.01), n = c(0, 10)),    # x2 scored, x1 has no test rows
+  item_rows("p6", "mean", c(0.04, 0.01)),
+  item_rows("p6", "ar", c(1e-36, 0.01))     # floating-point noise from an exact fit
 )
 metrics$ss_res[metrics$id == "p5" & metrics$model == "ar" & metrics$variable == "x1"] <- 0
 out <- relative_mse(metrics)
@@ -47,6 +49,7 @@ stopifnot(get(out, "p2", "locf", "reason_na") == "zero_model",
           get(out, "p3", "ar", "reason_na") == "zero_reference",
           get(out, "p4", "ar", "reason_na") == "missing",
           get(out, "p5", "ar", "reason_na") == "missing",
+          get(out, "p6", "ar", "reason_na") == "zero_model",
           all(is.finite(out$rel_mse) | is.na(out$rel_mse)),
           all(is.finite(out$gm_mse) | is.na(out$gm_mse)))
 cat("zero and missing cases flagged per person x model: PASS\n")

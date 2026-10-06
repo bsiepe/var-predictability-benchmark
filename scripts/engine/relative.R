@@ -8,8 +8,10 @@
 #   gm_mse: geometric mean over items of MSE_model
 #   reason_na: why rel_mse is undefined ("missing", "zero_reference", "zero_model"), NA otherwise
 # metrics needs dataset_id, id, model, variable, set, ss_res, n (one row per item)
-relative_mse <- function(metrics) {
+relative_mse <- function(metrics, zero_tol = 1e-10) {
   item_key <- c("dataset_id", "id", "variable", "set")
+  # an exact fit (e.g. ar on a constant item) leaves floating-point noise around 1e-35 instead
+  # of 0. zero_tol (RMSE 1e-5 on the [0, 1] scale) treats it as zero. real errors are far larger
   # items without scored test rows count as missing, never as a division by zero
   safe_mse <- function(ss_res, n) dplyr::if_else(!is.na(n) & n > 0, ss_res / n, NA_real_)
   
@@ -38,8 +40,8 @@ relative_mse <- function(metrics) {
     dplyr::summarise(
       n_items = dplyr::n(),
       missing = anyNA(mse) | anyNA(mse_ref),
-      zero_ref = any(mse_ref == 0, na.rm = TRUE),
-      zero_model = any(mse == 0, na.rm = TRUE),
+      zero_ref = any(mse_ref < zero_tol, na.rm = TRUE),
+      zero_model = any(mse < zero_tol, na.rm = TRUE),
       log_ratio = mean(log(mse / mse_ref)),
       log_mse = mean(log(mse)),
       .by = c(dataset_id, id, model, set)

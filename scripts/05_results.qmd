@@ -64,6 +64,10 @@ path_levels <- c("A: cross-lags,\nthen pooling", "B: pooling,\nthen cross-lags")
 component_palette <- setNames(c(MetBrewer::met.brewer("Hiroshige")[c(9, 2, 7)], "grey45"),
                               component_levels)
 
+# relative MSE is aggregated with the geometric mean and shown on log axes labelled with ratios
+geo_mean <- function(x) exp(mean(log(x)))
+ratio_breaks <- c(0.5, 0.67, 0.8, 1, 1.25, 1.5, 2)
+
 ```
 
 # Descriptives
@@ -318,15 +322,18 @@ ggplot(is_oos, aes(y = dataset)) +
 
 ```{r}
 #| label: fig-dominance
-#| fig-cap: "Pairwise model dominance: Proportion of persons where the row model has lower OOS RMSE than the column model. Values above 0.5 indicate the row model wins more often."
+#| fig-cap: "Pairwise model dominance: Proportion of persons where the column model has lower OOS relative MSE than the row model. The Mean row is the share of persons for whom a model beats the mean model. Without a true difference, about 0.5 is expected from noise alone."
 #| fig-height: 5.5
 
 model_pairs <- expand.grid(model_a = model_labels, model_b = model_labels,
                            stringsAsFactors = FALSE)
 
-dat_wide <- dat_oos |>
-  select(dataset_id, id, model, rmse) |>
-  pivot_wider(names_from = model, values_from = rmse)
+# comparing rel_mse within a person compares geometric-mean MSE over items
+dat_wide <- combined |>
+  filter(set == "oos", is.finite(rel_mse)) |>
+  mutate(model = factor(model, levels = model_order, labels = model_labels)) |>
+  select(dataset_id, id, model, rel_mse) |>
+  pivot_wider(names_from = model, values_from = rel_mse)
 
 dominance <- model_pairs |>
   rowwise() |>
@@ -358,82 +365,83 @@ Here, we display total model improvement from the mean model to the most complex
 
 ```{r}
 #| label: fig-decomposition
-#| fig-cap: "Decomposition of the change in OOS RMSE from the mean model to mlVAR, along two paths."
+#| fig-cap: "Decomposition of the change in OOS MSE from the mean model to mlVAR, along two paths. Bars are geometric means of the MSE ratio after vs. before each step."
 #| fig-height: 9
 #| fig-width: 11
 
-
-
-rmse_wide <- combined |>
+rel_wide <- combined |>
   filter(set == "oos", model %in% decomp_models) |>
-  mutate(rmse = if_else(is.finite(rmse) & rmse > 0, rmse, NA_real_)) |>
-  select(dataset_id, first_author, year, id, model, rmse) |>
-  pivot_wider(names_from = model, values_from = rmse)
+  select(dataset_id, first_author, year, id, model, rel_mse) |>
+  pivot_wider(names_from = model, values_from = rel_mse)
 
 # persons need all five models for the components to add up
-n_incomplete <- sum(!complete.cases(rmse_wide[decomp_models]))
-rmse_wide <- filter(rmse_wide, if_all(all_of(decomp_models), is.finite))
+n_incomplete <- sum(!complete.cases(rel_wide[decomp_models]))
+rel_wide <- filter(rel_wide, if_all(all_of(decomp_models), is.finite))
 
-# change in RMSE per step, negative values mean lower RMSE after the step
+# MSE ratio after vs. before each step. on the log axis, the steps of a path add up to the total.
+# values below 1 mean lower error after the step
 id_cols <- c("dataset_id", "first_author", "year", "id", "path")
-deltas <- bind_rows(
-  rmse_wide |>
+ratios <- bind_rows(
+  rel_wide |>
     mutate(path = path_levels[1],
-           Autoregression = ar - mean, `Cross-dynamics` = var - ar,
-           Pooling = ml_var - var, Total = ml_var - mean),
-  rmse_wide |>
+           Autoregression = ar / mean, `Cross-dynamics` = var / ar,
+           Pooling = ml_var / var, Total = ml_var / mean),
+  rel_wide |>
     mutate(path = path_levels[2],
-           Autoregression = ar - mean, `Cross-dynamics` = ml_var - ml_ar,
-           Pooling = ml_ar - ar, Total = ml_var - mean)
+           Autoregression = ar / mean, `Cross-dynamics` = ml_var / ml_ar,
+           Pooling = ml_ar / ar, Total = ml_var / mean)
 ) |>
   select(all_of(id_cols), all_of(component_levels)) |>
-  pivot_longer(all_of(component_levels), names_to = "component", values_to = "delta")
+  pivot_longer(all_of(component_levels), names_to = "component", values_to = "ratio")
 
-delta_ds <- deltas |>
-  summarise(est = mean(delta), .by = c(dataset_id, first_author, year, path, component))
+ratio_ds <- ratios |>
+  summarise(ratio = geo_mean(ratio), .by = c(dataset_id, first_author, year, path, component))
 
 # datasets are weighted equally
-delta_all <- delta_ds |>
-  summarise(est = mean(est), .by = c(path, component)) |>
+ratio_all <- ratio_ds |>
+  summarise(ratio = geo_mean(ratio), .by = c(path, component)) |>
   mutate(label = "All datasets")
 
-ds_labels <- delta_ds |>
+ds_labels <- ratio_ds |>
   distinct(dataset_id, first_author, year) |>
   mutate(label = paste0(first_author, " (", year, ")"),
          label = if_else(duplicated(label) | duplicated(label, fromLast = TRUE),
                          paste0(label, " [", dataset_id, "]"), label))
 
 # largest total improvement at the top
-label_order <- delta_ds |>
+label_order <- ratio_ds |>
   filter(component == "Total", path == path_levels[1]) |>
   left_join(ds_labels, by = c("dataset_id", "first_author", "year")) |>
-  arrange(desc(est)) |>
+  arrange(desc(ratio)) |>
   pull(label)
 
-# symmetric x-range shared by all panels. bars beyond it are cut short and labelled with their value
-x_lim <- 0.1
+# x-range shared by all panels, symmetric around 1 on the log axis. bars beyond it are cut
+# short and labelled with their ratio
+x_lim <- c(2 / 3, 1.5)
 
-plot_decomp <- delta_ds |>
+plot_decomp <- ratio_ds |>
   left_join(ds_labels, by = c("dataset_id", "first_author", "year")) |>
-  bind_rows(delta_all) |>
-  mutate(capped = abs(est) > x_lim,
-         bar_end = if_else(capped, sign(est) * x_lim * 0.97, est),
+  bind_rows(ratio_all) |>
+  mutate(capped = ratio < x_lim[1] | ratio > x_lim[2],
+         bar_end = pmin(pmax(ratio, x_lim[1] * 1.03), x_lim[2] / 1.03),
          label = factor(label, levels = c("All datasets", label_order)),
          component = factor(component, levels = component_levels),
          path = factor(path, levels = path_levels))
 
-ggplot(plot_decomp, aes(x = bar_end, y = label, fill = component)) +
-  geom_vline(xintercept = 0, colour = "grey50", linewidth = 0.3) +
-  geom_col(width = 0.7) +
+# bars on a log axis cannot start at 0, so they are drawn from 1 to the ratio
+ggplot(plot_decomp, aes(y = label, colour = component)) +
+  geom_vline(xintercept = 1, colour = "grey50", linewidth = 0.3) +
+  geom_segment(aes(x = 1, xend = bar_end, yend = label), linewidth = 3.5, lineend = "butt") +
   geom_text(data = filter(plot_decomp, capped),
-            aes(x = sign(est) * x_lim, label = sprintf("%.2f", est),
-                hjust = if_else(est > 0, 1, 0)),
+            aes(x = if_else(ratio > 1, x_lim[2], x_lim[1]), label = sprintf("%.2f", ratio),
+                hjust = if_else(ratio > 1, 1, 0)),
             size = 2.8, colour = "grey20") +
   geom_hline(yintercept = 1.5, colour = "grey70", linewidth = 0.3) +
-  scale_fill_manual(values = component_palette, guide = "none") +
+  scale_colour_manual(values = component_palette, guide = "none") +
+  scale_x_log10(breaks = ratio_breaks) +
   ggh4x::facet_grid2(path ~ component, axes = "all", remove_labels = "y") +
-  coord_cartesian(xlim = c(-x_lim, x_lim), expand = FALSE) +
-  labs(x = "Change in OOS RMSE [0, 1] (< 0 = better)", y = NULL) +
+  coord_cartesian(xlim = x_lim, expand = FALSE) +
+  labs(x = "OOS MSE ratio after vs. before the step (log scale, < 1 = better)", y = NULL) +
   theme_bs(base_size = 11) +
   theme(panel.grid.major.y = element_blank(),
         panel.grid.major.x = element_line(colour = "#E0E0E0"))
@@ -442,35 +450,92 @@ ggplot(plot_decomp, aes(x = bar_end, y = label, fill = component)) +
 ## Value of pooling by series length
 
 ```{r}
+#| label: fig-shrinkage
+#| fig-cap: "Person-level OOS MSE relative to the mean model: person-specific vs. multilevel model, coloured by training series length. Points below the diagonal: pooling lowered the error. Points outside the range are drawn at its edge."
+#| fig-height: 5
+#| fig-width: 10
+
+xy_lim <- c(0.25, 4)
+
+shrinkage <- combined |>
+  filter(set == "oos", model %in% c("ar", "ml_ar", "var", "ml_var"), is.finite(rel_mse)) |>
+  select(dataset_id, id, model, rel_mse) |>
+  pivot_wider(names_from = model, values_from = rel_mse) |>
+  pivot_longer(c(ml_ar, ml_var), names_to = "ml_model", values_to = "multilevel") |>
+  mutate(person_specific = if_else(ml_model == "ml_ar", ar, var),
+         comparison = factor(ml_model, levels = c("ml_ar", "ml_var"),
+                             labels = c("AR vs. mlAR", "VAR vs. mlVAR"))) |>
+  filter(is.finite(person_specific), is.finite(multilevel)) |>
+  left_join(select(features$person, dataset_id, id, n_train_first), by = c("dataset_id", "id")) |>
+  # points outside the plotting range are drawn at its edge
+  mutate(x_plot = pmin(pmax(person_specific, xy_lim[1]), xy_lim[2]),
+         y_plot = pmin(pmax(multilevel, xy_lim[1]), xy_lim[2])) |>
+  # short series last, so they are drawn on top
+  arrange(desc(n_train_first))
+
+stopifnot(!anyNA(shrinkage$n_train_first))
+
+# arrows from the diagonal into the region where each model has the lower error
+better_arrows <- tibble(
+  x = c(0.5, 2), y = c(0.5, 2),
+  xend = c(0.8, 1.25), yend = c(0.31, 3.2),
+  label = c("Multilevel\nbetter", "Person-specific\nbetter"),
+  hjust = c(0, 1), vjust = c(1, 0)
+)
+
+ggplot(shrinkage, aes(x = x_plot, y = y_plot, colour = n_train_first)) +
+  geom_hline(yintercept = 1, colour = "grey85", linewidth = 0.3) +
+  geom_vline(xintercept = 1, colour = "grey85", linewidth = 0.3) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey50", linetype = "dashed") +
+  geom_point(alpha = 0.6, size = 0.9) +
+  geom_segment(data = better_arrows, aes(x = x, y = y, xend = xend, yend = yend),
+               arrow = arrow(length = unit(0.2, "cm")), colour = "grey20", linewidth = 0.5,
+               inherit.aes = FALSE) +
+  geom_text(data = better_arrows,
+            aes(x = xend, y = yend, label = label, hjust = hjust, vjust = vjust),
+            size = 3.5, colour = "grey20", lineheight = 0.9, inherit.aes = FALSE) +
+  scale_x_log10(breaks = c(0.25, 0.5, 1, 2, 4)) +
+  scale_y_log10(breaks = c(0.25, 0.5, 1, 2, 4)) +
+  scale_colour_viridis_c(transform = "log10", name = "Training length\n(first fold)") +
+  ggh4x::facet_wrap2(~ comparison, axes = "all") +
+  coord_cartesian(xlim = xy_lim, ylim = xy_lim, expand = FALSE) +
+  labs(x = "Person-specific model (relative MSE, log scale)",
+       y = "Multilevel model (relative MSE, log scale)") +
+  theme_bs() +
+  theme(legend.position = "right")
+```
+
+```{r}
 #| label: fig-pooling-length
-#| fig-cap: "Change in OOS RMSE from pooling, by the person's training series length."
+#| fig-cap: "Change in OOS MSE from pooling, by the person's training series length. The y-axis shows the MSE ratio of the multilevel vs. the person-specific model."
 #| fig-height: 5
 #| fig-width: 9
 
-y_lim <- c(-0.1, 0.05)
+# y-range symmetric around 1 on the log axis
+y_lim <- c(0.5, 2)
 
 pooling <- combined |>
-  filter(set == "oos", model %in% c("ar", "ml_ar", "var", "ml_var"),
-         is.finite(rmse), rmse > 0) |>
-  select(dataset_id, id, model, rmse) |>
-  pivot_wider(names_from = model, values_from = rmse) |>
-  mutate(`AR → mlAR` = ml_ar - ar, `VAR → mlVAR` = ml_var - var) |>
+  filter(set == "oos", model %in% c("ar", "ml_ar", "var", "ml_var"), is.finite(rel_mse)) |>
+  select(dataset_id, id, model, rel_mse) |>
+  pivot_wider(names_from = model, values_from = rel_mse) |>
+  mutate(`AR → mlAR` = ml_ar / ar, `VAR → mlVAR` = ml_var / var) |>
   select(dataset_id, id, `AR → mlAR`, `VAR → mlVAR`) |>
-  pivot_longer(-c(dataset_id, id), names_to = "comparison", values_to = "delta") |>
-  filter(is.finite(delta)) |>
+  pivot_longer(-c(dataset_id, id), names_to = "comparison", values_to = "ratio") |>
+  filter(is.finite(ratio)) |>
   left_join(select(features$person, dataset_id, id, n_train_first),
             by = c("dataset_id", "id"))
 
 stopifnot(!anyNA(pooling$n_train_first))
 
 beyond <- pooling |>
-  summarise(n_below = sum(delta < y_lim[1]), n_above = sum(delta > y_lim[2]),
+  summarise(n_below = sum(ratio < y_lim[1]), n_above = sum(ratio > y_lim[2]),
             .by = comparison) |>
   mutate(label = sprintf("%d above, %d below range", n_above, n_below))
 
-# robust loess downweights persons whose person-specific model breaks down
-ggplot(pooling, aes(x = n_train_first, y = delta)) +
-  geom_hline(yintercept = 0, colour = "grey50", linewidth = 0.3) +
+# robust loess downweights persons whose person-specific model breaks down.
+# it is fitted on the log axis, so improvements and deteriorations count alike
+ggplot(pooling, aes(x = n_train_first, y = ratio)) +
+  geom_hline(yintercept = 1, colour = "grey50", linewidth = 0.3) +
   geom_point(alpha = 0.15, size = 0.8, colour = "#2C3E50") +
   geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
               method.args = list(family = "symmetric"),
@@ -481,10 +546,11 @@ ggplot(pooling, aes(x = n_train_first, y = delta)) +
   geom_text(data = beyond, aes(x = -Inf, y = Inf, label = label),
             inherit.aes = FALSE, hjust = -0.05, vjust = 1.5, size = 3, colour = "grey30") +
   scale_x_log10() +
+  scale_y_log10(breaks = ratio_breaks) +
   ggh4x::facet_wrap2(~ comparison, axes = "all") +
   coord_cartesian(ylim = y_lim) +
   labs(x = "Training series length (first fold, log scale)",
-       y = "Change in OOS RMSE [0, 1] (< 0 = pooling better)") +
+       y = "OOS MSE ratio (log scale, < 1 = pooling better)") +
   theme_bs()
 ```
 
@@ -492,33 +558,33 @@ ggplot(pooling, aes(x = n_train_first, y = delta)) +
 
 ```{r}
 #| label: fig-cross-dynamics
-#| fig-cap: "Change in OOS RMSE from adding cross-lagged effects, by the number of training observations per VAR coefficient."
+#| fig-cap: "Change in OOS MSE from adding cross-lagged effects, by the number of training observations per VAR coefficient. The y-axis shows the MSE ratio of the model with vs. without cross-lags."
 #| fig-height: 5
 #| fig-width: 9
 
-y_lim_cross <- c(-0.05, 0.1)
+# y-range symmetric around 1 on the log axis
+y_lim_cross <- c(0.5, 2)
 
 cross_dyn <- combined |>
-  filter(set == "oos", model %in% c("ar", "var", "ml_ar", "ml_var"),
-         is.finite(rmse), rmse > 0) |>
-  select(dataset_id, id, model, rmse) |>
-  pivot_wider(names_from = model, values_from = rmse) |>
-  mutate(`AR → VAR` = var - ar, `mlAR → mlVAR` = ml_var - ml_ar) |>
+  filter(set == "oos", model %in% c("ar", "var", "ml_ar", "ml_var"), is.finite(rel_mse)) |>
+  select(dataset_id, id, model, rel_mse) |>
+  pivot_wider(names_from = model, values_from = rel_mse) |>
+  mutate(`AR → VAR` = var / ar, `mlAR → mlVAR` = ml_var / ml_ar) |>
   select(dataset_id, id, `AR → VAR`, `mlAR → mlVAR`) |>
-  pivot_longer(-c(dataset_id, id), names_to = "comparison", values_to = "delta") |>
-  filter(is.finite(delta)) |>
+  pivot_longer(-c(dataset_id, id), names_to = "comparison", values_to = "ratio") |>
+  filter(is.finite(ratio)) |>
   left_join(select(features$person, dataset_id, id, obs_per_var_eq_par),
             by = c("dataset_id", "id"))
 
 stopifnot(!anyNA(cross_dyn$obs_per_var_eq_par))
 
 beyond_cross <- cross_dyn |>
-  summarise(n_below = sum(delta < y_lim_cross[1]), n_above = sum(delta > y_lim_cross[2]),
+  summarise(n_below = sum(ratio < y_lim_cross[1]), n_above = sum(ratio > y_lim_cross[2]),
             .by = comparison) |>
   mutate(label = sprintf("%d above, %d below range", n_above, n_below))
 
-ggplot(cross_dyn, aes(x = obs_per_var_eq_par, y = delta)) +
-  geom_hline(yintercept = 0, colour = "grey50", linewidth = 0.3) +
+ggplot(cross_dyn, aes(x = obs_per_var_eq_par, y = ratio)) +
+  geom_hline(yintercept = 1, colour = "grey50", linewidth = 0.3) +
   geom_point(alpha = 0.15, size = 0.8, colour = "#2C3E50") +
   geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
               method.args = list(family = "symmetric"),
@@ -529,59 +595,58 @@ ggplot(cross_dyn, aes(x = obs_per_var_eq_par, y = delta)) +
   geom_text(data = beyond_cross, aes(x = -Inf, y = Inf, label = label),
             inherit.aes = FALSE, hjust = -0.05, vjust = 1.5, size = 3, colour = "grey30") +
   scale_x_log10() +
+  scale_y_log10(breaks = ratio_breaks) +
   ggh4x::facet_wrap2(~ comparison, axes = "all") +
   coord_cartesian(ylim = y_lim_cross) +
   labs(x = "Training observations per VAR coefficient (first fold, log scale)",
-       y = "Change in OOS RMSE [0, 1] (< 0 = cross-lags better)") +
+       y = "OOS MSE ratio (log scale, < 1 = cross-lags better)") +
   theme_bs()
 ```
 
 ## Time series gallery
 
-We now select a few persons with good, average, and poor predictions by mlVAR relative to the mean model, and show one typical item per person. We also show the first OOS origin as a dashed line. We here define "skill" as the relative improvement of mlVAR over the mean model, i.e., 1 - RMSE_mlVAR / RMSE_mean. A skill of 0 means that mlVAR performs equally well as the mean model, a skill of 0.5 means that mlVAR reduces the RMSE by 50% relative to the mean model, and a negative skill means that mlVAR performs worse than the mean model.
+We now select a few persons with good, average, and poor predictions by mlVAR relative to the mean model, and show one typical item per person. We also show the first OOS origin as a dashed line. 
 
 
 ```{r}
 #| label: fig-gallery
-#| fig-cap: "Observed series and OOS predictions for the persons with the highest, median and lowest mlVAR skill relative to the mean model. One typical item per person. The dashed line marks the first OOS origin."
+#| fig-cap: "Observed series and OOS predictions for the persons with the lowest, median and highest MSE of mlVAR relative to the mean model. One typical item per person. The dashed line marks the first OOS origin."
 #| fig-height: 9
 #| fig-width: 11
 
-# person-level skill of mlVAR relative to the mean model
-person_skill <- combined |>
-  filter(set == "oos", model %in% c("mean", "ml_var"), is.finite(rmse), rmse > 0) |>
-  select(dataset_id, first_author, year, id, model, rmse) |>
-  pivot_wider(names_from = model, values_from = rmse, names_prefix = "rmse_") |>
-  filter(is.finite(rmse_mean), is.finite(rmse_ml_var)) |>
-  mutate(skill = 1 - rmse_ml_var / rmse_mean) |>
-  arrange(skill, dataset_id, id)
+# person-level relative MSE of mlVAR, lower is better
+person_rel <- combined |>
+  filter(set == "oos", model == "ml_var", is.finite(rel_mse)) |>
+  select(dataset_id, first_author, year, id, rmse, rel_mse) |>
+  arrange(rel_mse, dataset_id, id)
 
-median_skill <- median(person_skill$skill)
+median_rel <- median(person_rel$rel_mse)
 selected <- bind_rows(
-  slice_max(person_skill, skill, n = 3, with_ties = FALSE) |> mutate(group = "Best"),
-  slice_min(person_skill, abs(skill - median_skill), n = 3, with_ties = FALSE) |>
+  slice_min(person_rel, rel_mse, n = 3, with_ties = FALSE) |> mutate(group = "Best"),
+  slice_min(person_rel, abs(log(rel_mse / median_rel)), n = 3, with_ties = FALSE) |>
     mutate(group = "Median"),
-  slice_min(person_skill, skill, n = 3, with_ties = FALSE) |> mutate(group = "Worst")
+  slice_max(person_rel, rel_mse, n = 3, with_ties = FALSE) |> mutate(group = "Worst")
 ) |>
   mutate(rank = row_number(), .by = group)
 
-# per person, the item whose skill is closest to that person's median item skill
-item_skill <- features$item_error |>
+# item-level MSE ratio of mlVAR vs. the mean model
+item_rel <- features$item_error |>
   filter(model %in% c("mean", "ml_var")) |>
-  select(dataset_id, id, variable, model, rmse) |>
-  pivot_wider(names_from = model, values_from = rmse, names_prefix = "rmse_") |>
-  filter(rmse_mean > 0) |>
-  mutate(item_skill = 1 - rmse_ml_var / rmse_mean)
+  select(dataset_id, id, variable, model, mse) |>
+  pivot_wider(names_from = model, values_from = mse, names_prefix = "mse_") |>
+  filter(mse_mean > 0, mse_ml_var > 0) |>
+  mutate(item_rel = mse_ml_var / mse_mean)
 
+# per person, the item whose ratio is closest to that person's median item ratio (on the log axis)
 gallery_items <- selected |>
-  select(dataset_id, first_author, year, id, skill, group, rank) |>
-  inner_join(item_skill, by = c("dataset_id", "id")) |>
-  slice_min(abs(item_skill - median(item_skill)), n = 1, with_ties = FALSE,
+  select(dataset_id, first_author, year, id, rel_mse, group, rank) |>
+  inner_join(item_rel, by = c("dataset_id", "id")) |>
+  slice_min(abs(log(item_rel / median(item_rel))), n = 1, with_ties = FALSE,
             by = c(dataset_id, id)) |>
   mutate(group = factor(group, levels = c("Best", "Median", "Worst"))) |>
   arrange(group, rank) |>
-  mutate(panel = sprintf("%s %d, skill %.2f\n%s (%s), %s",
-                         group, rank, skill, first_author, year, variable),
+  mutate(panel = sprintf("%s %d, relative MSE %.2f\n%s (%s), %s",
+                         group, rank, rel_mse, first_author, year, variable),
          panel = factor(panel, levels = panel))
 
 gallery_keys <- select(gallery_items, dataset_id, id, variable, panel)
@@ -614,31 +679,31 @@ ggplot(gallery_series, aes(x = t, y = y)) +
 
 ```{r}
 #| label: fig-absolute-relative
-#| fig-cap: "Person-level OOS RMSE of mlVAR by within-person variability, coloured by skill relative to the mean model."
+#| fig-cap: "Person-level OOS RMSE of mlVAR by within-person variability in the training window, coloured by MSE relative to the mean model."
 #| fig-height: 5
 #| fig-width: 8
 
-skill_lim <- 0.3
+abs_rel <- person_rel |>
+  left_join(select(features$person, dataset_id, id, sd_train_mean), by = c("dataset_id", "id"))
 
-abs_rel <- person_skill |>
-  left_join(select(features$person, dataset_id, id, sd_obs_mean), by = c("dataset_id", "id"))
+stopifnot(!anyNA(abs_rel$sd_train_mean))
 
-stopifnot(!anyNA(abs_rel$sd_obs_mean))
+r_sd_rmse <- cor(abs_rel$sd_train_mean, abs_rel$rmse)
 
-r_sd_rmse <- cor(abs_rel$sd_obs_mean, abs_rel$rmse_ml_var)
-
-ggplot(abs_rel, aes(x = sd_obs_mean, y = rmse_ml_var, colour = skill)) +
+ggplot(abs_rel, aes(x = sd_train_mean, y = rmse, colour = rel_mse)) +
   geom_point(alpha = 0.6, size = 1) +
   geom_smooth(method = "lm", formula = y ~ x, se = FALSE, colour = "grey20",
               linewidth = 0.8) +
   annotate("text", x = -Inf, y = Inf, label = sprintf("r = %.2f", r_sd_rmse),
            hjust = -0.2, vjust = 1.5, size = 4, colour = "grey20") +
-  scale_colour_gradient2(low = component_palette[["Cross-dynamics"]], mid = "grey85",
-                         high = component_palette[["Autoregression"]], midpoint = 0,
-                         limits = c(-skill_lim, skill_lim), oob = scales::oob_squish,
-                         name = "Skill vs. mean") +
+  # log colour scale centred on 1 (same error as the mean model)
+  scale_colour_gradient2(low = component_palette[["Autoregression"]], mid = "grey85",
+                         high = component_palette[["Cross-dynamics"]], midpoint = 1,
+                         transform = "log10", limits = c(0.5, 2), oob = scales::oob_squish,
+                         breaks = c(0.5, 1, 2), name = "MSE relative\nto mean model") +
   coord_cartesian(xlim = c(0, NA), ylim = c(0, NA), expand = FALSE) +
-  labs(x = "Within-person SD (mean across items)", y = "OOS RMSE of mlVAR [0, 1]") +
+  labs(x = "Within-person SD in the training window (mean across items)",
+       y = "OOS RMSE of mlVAR [0, 1]") +
   theme_bs() +
   theme(legend.position = "right")
 ```
@@ -650,17 +715,17 @@ This strong correlation suggests that the absolute performance of mlVAR is large
 
 ```{r}
 #| label: fig-is-oos-selection
-#| fig-cap: "Share of persons for whom each model has the lowest in-sample and out-of-sample RMSE. Numbers are counts of persons."
+#| fig-cap: "Share of persons for whom each model has the lowest in-sample and out-of-sample relative MSE. Numbers are counts of persons."
 #| fig-height: 5
 #| fig-width: 8
 
 best_model <- combined |>
-  filter(set %in% c("in", "oos"), is.finite(rmse), rmse > 0) |>
+  filter(set %in% c("in", "oos"), is.finite(rel_mse)) |>
   mutate(n_model_sets = n_distinct(model, set), .by = c(dataset_id, id)) |>
-  # a person's best model is only comparable if all models have a finite RMSE in both sets
+  # a person's best model is only comparable if all models have a defined relative MSE in both sets
   filter(n_model_sets == length(model_order) * 2) |>
-  # for each person, select the model with the lowest RMSE in each set
-  slice_min(rmse, n = 1, with_ties = FALSE, by = c(dataset_id, id, set)) |>
+  # for each person, select the model with the lowest relative MSE in each set
+  slice_min(rel_mse, n = 1, with_ties = FALSE, by = c(dataset_id, id, set)) |>
   select(dataset_id, id, set, model) |>
   pivot_wider(names_from = set, values_from = model)
 
@@ -680,7 +745,7 @@ ggplot(selection, aes(x = model, y = share, fill = set)) +
                                "Out-of-sample" = component_palette[["Autoregression"]]),
                     name = NULL) +
   scale_y_continuous(labels = scales::label_percent(), limits = c(0, 1.05), expand = c(0, 0)) +
-  labs(x = NULL, y = "Share of persons with lowest RMSE") +
+  labs(x = NULL, y = "Share of persons with lowest relative MSE") +
   theme_bs()
 ```
 

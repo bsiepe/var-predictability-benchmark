@@ -152,6 +152,59 @@ failed |>
   knitr::kable()
 ```
 
+## Extreme Relative Errors
+
+```{r}
+#| label: tbl-extreme-relmse
+#| tbl-cap: "Persons whose OOS MSE is more than 20 times higher or lower than that of the mean model, per dataset and model."
+
+# 20 times higher or lower than the mean model
+extreme_cut <- log(20)
+
+combined |>
+  filter(set == "oos", model != "mean", is.finite(rel_mse), abs(log(rel_mse)) > extreme_cut) |>
+  mutate(direction = if_else(rel_mse > 1, "higher", "lower"),
+         model = factor(model, levels = model_order, labels = model_labels),
+         dataset = paste0(first_author, " (", year, ")")) |>
+  count(dataset, model, direction) |>
+  arrange(desc(n)) |>
+  knitr::kable(col.names = c("Dataset", "Model", "Error vs. mean model", "Persons"))
+```
+
+```{r}
+#| label: tbl-extreme-var-data
+#| tbl-cap: "Training observations per VAR coefficient (first fold) for persons with extremely high VAR error and all other persons."
+
+combined |>
+  filter(set == "oos", model == "var", is.finite(rel_mse)) |>
+  left_join(select(features$person, dataset_id, id, obs_per_var_eq_par),
+            by = c("dataset_id", "id")) |>
+  mutate(group = if_else(log(rel_mse) > extreme_cut, "Extreme", "Other")) |>
+  summarise(persons = n(), median_obs = median(obs_per_var_eq_par),
+            min_obs = min(obs_per_var_eq_par), .by = group) |>
+  knitr::kable(digits = 2, col.names = c("VAR error", "Persons",
+                                         "Median obs. per coefficient", "Min obs. per coefficient"))
+```
+
+```{r}
+#| label: tbl-out-of-scale
+#| tbl-cap: "AR and VAR predictions more than half a scale width outside [0, 1], per dataset. Datasets without such predictions are omitted."
+
+features$oos |>
+  filter(model %in% c("ar", "var")) |>
+  summarise(share_outside = mean(yhat < -0.5 | yhat > 1.5), max_abs = max(abs(yhat)),
+            .by = c(dataset_id, model)) |>
+  filter(share_outside > 0) |>
+  left_join(select(dataset_meta, dataset_id, first_author, year), by = "dataset_id") |>
+  mutate(dataset = paste0(first_author, " (", year, ")"),
+         model = factor(model, levels = model_order, labels = model_labels),
+         share_outside = sprintf("%.2f%%", 100 * share_outside)) |>
+  arrange(desc(max_abs)) |>
+  select(dataset, model, share_outside, max_abs) |>
+  knitr::kable(digits = 1, col.names = c("Dataset", "Model", "Share of predictions",
+                                         "Largest |prediction|"))
+```
+
 
 # Predictive accuracy across the complexity ladder
 
@@ -202,52 +255,6 @@ ggplot(dat_oos, aes(x = model, y = rmse)) +
 ## In-sample vs. out-of-sample RMSE
 
 We here compute the in-sample performance by fitting each model on the whole time series, without a test-set split.
-
-```{r}
-#| label: fig-rmse-gap
-#| fig-cap: "In-sample vs. out-of-sample RMSE by model complexity. Points are means across persons. Lines connect the two sets within each model."
-#| fig-height: 5
-
-dat_both <- combined |>
-  filter(is.finite(rmse), rmse > 0) |>
-  mutate(model = factor(model, levels = model_order, labels = model_labels),
-         set = factor(set, levels = c("in", "oos"), labels = c("In-sample", "OOS"))) |>
-  summarise(rmse = mean(rmse, na.rm = TRUE), .by = c(model, set))
-
-ggplot(dat_both, aes(x = set, y = rmse, group = model, colour = model)) +
-  geom_line(linewidth = 0.7, alpha = 0.8) +
-  geom_point(size = 2.5) +
-  coord_cartesian(ylim = c(0, 0.3), expand = FALSE) +
-  scale_colour_manual(values = model_palette) +
-  labs(x = NULL, y = "Mean RMSE [0, 1]", colour = NULL) +
-  theme_bs()
-```
-
-We investigate the somewhat surprising result that the in-sample RMSE is not always lower than the out-of-sample RMSE, particularly for LOCF where we would not expect that: 
-
-```{r}
-#| label: rmse-oos-locf
-# per-dataset IS-OOS gap for mean (baseline distributional difference) and locf.
-# locf_specific = LOCF gap - Mean gap: the part not explained by OOS time points
-# having generally lower variance.
-locf_gap <- combined |>
-  filter(model %in% c("mean", "locf"), set %in% c("in", "oos"),
-         is.finite(rmse), rmse > 0) |>
-  summarise(rmse = mean(rmse, na.rm = TRUE), .by = c(dataset_id, model, set)) |>
-  pivot_wider(names_from = set, values_from = rmse) |>
-  mutate(gap = `in` - oos) |>
-  select(dataset_id, model, gap) |>
-  pivot_wider(names_from = model, values_from = gap) |>
-  mutate(locf_specific = locf - mean) |>
-  left_join(dataset_meta |> select(dataset_id, first_author, year), by = "dataset_id")
-
-locf_gap |>
-  select(first_author, year, mean_gap = mean, locf_gap = locf, locf_specific) |>
-  arrange(desc(locf_specific)) |>
-  knitr::kable(digits = 3,
-               col.names = c("Author", "Year", "Mean gap", "LOCF gap", "LOCF-specific"),
-               caption = "IS - OOS RMSE gap per dataset. 'LOCF-specific' removes the baseline distributional gap (Mean gap) from the LOCF gap. Consistently positive values suggest a LOCF-specific mechanism beyond distributional IS/OOS differences.")
-```
 
 ```{r}
 #| label: fig-is-oos-barbell
@@ -305,74 +312,6 @@ ggplot(is_oos, aes(y = dataset)) +
   labs(x = "RMSE [0, 1]", y = NULL) +
   theme_bs(base_size = 11) +
   theme(legend.position = "bottom")
-```
-
-
-
-
-## Person-specific vs. multilevel models
-
-```{r}
-#| label: fig-shrinkage
-#| fig-cap: "Person-level OOS RMSE: person-specific vs. multilevel models. Points below the diagonal indicate shrinkage improved predictions."
-#| fig-height: 5
-
-dat_shrink <- combined |>
-  filter(set == "oos", is.finite(rmse), rmse > 0) |>
-  select(dataset_id, id, model, rmse) |>
-  pivot_wider(names_from = model, values_from = rmse) |>
-  pivot_longer(
-    cols = c(ml_ar, ml_var),
-    names_to = "ml_model", values_to = "rmse_ml"
-  ) |>
-  mutate(
-    person_model = if_else(ml_model == "ml_ar", ar, var),
-    comparison = factor(ml_model,
-                        levels = c("ml_ar", "ml_var"),
-                        labels = c("AR vs. mlAR", "VAR vs. mlVAR"))
-  ) |>
-  filter(is.finite(rmse_ml), is.finite(person_model))
-
-xy_cap <- 0.75
-
-ggplot(dat_shrink, aes(x = person_model, y = rmse_ml)) +
-  annotate("polygon",
-           x = c(0, xy_cap, xy_cap), y = c(0, 0, xy_cap),
-           fill = "#6BAED6", alpha = 0.07) +
-  annotate("polygon",
-           x = c(0, 0, xy_cap), y = c(0, xy_cap, xy_cap),
-           fill = "#FC8D59", alpha = 0.07) +
-  annotate("text", x = xy_cap * 0.75, y = xy_cap * 0.18,
-           label = "Multilevel\nbetter", colour = "#6BAED6",
-           size = 3.5, hjust = 0.5) +
-  annotate("text", x = xy_cap * 0.18, y = xy_cap * 0.75,
-           label = "Person-specific\nbetter", colour = "#FC8D59",
-           size = 3.5, hjust = 0.5) +
-  geom_abline(slope = 1, intercept = 0, colour = "grey50", linetype = "dashed") +
-  geom_point(alpha = 0.2, size = 0.9, colour = "#2C3E50") +
-  ggh4x::facet_wrap2(~ comparison, axes = "all") +
-  coord_cartesian(xlim = c(0, xy_cap), ylim = c(0, xy_cap), expand = FALSE) +
-  labs(x = "Person-specific RMSE", y = "Multilevel RMSE") +
-  theme_bs()
-```
-
-
-
-
-## Heterogeneity across datasets
-
-```{r}
-#| label: fig-heterogeneity
-#| fig-cap: "OOS RMSE by model and dataset. Each panel is one dataset; points are persons."
-#| fig-height: 10
-
-ggplot(dat_oos, aes(y = model, x = rmse)) +
-  geom_boxplot(width = 0.5, outlier.shape = NA, alpha = 0.5) +
-  geom_jitter(height = 0.15, alpha = 0.15, size = 0.6, colour = "#2C3E50") +
-  ggh4x::facet_wrap2(~ dataset_id, axes = "all") +
-  coord_cartesian(xlim = c(0, y_cap), expand = FALSE) +
-  labs(y = NULL, x = "OOS RMSE [0, 1]") +
-  theme_bs(base_size = 11)
 ```
 
 ## Model dominance
@@ -742,43 +681,6 @@ ggplot(selection, aes(x = model, y = share, fill = set)) +
                     name = NULL) +
   scale_y_continuous(labels = scales::label_percent(), limits = c(0, 1.05), expand = c(0, 0)) +
   labs(x = NULL, y = "Share of persons with lowest RMSE") +
-  theme_bs()
-```
-
-## Regret relative to the best model per person
-
-```{r}
-#| label: fig-regret
-#| fig-cap: "OOS regret per person: RMSE of each model minus the RMSE of that person's best model."
-#| fig-height: 5.5
-
-regret_cap <- 0.1
-
-regret <- combined |>
-  filter(set == "oos", is.finite(rmse), rmse > 0) |>
-  mutate(n_models = n_distinct(model), .by = c(dataset_id, id)) |>
-  # regret is only comparable if all models have a finite OOS RMSE
-  filter(n_models == length(model_order)) |>
-  mutate(regret = rmse - min(rmse), .by = c(dataset_id, id)) |>
-  mutate(model = factor(model, levels = model_order, labels = model_labels))
-
-regret_out <- regret |>
-  filter(regret > regret_cap) |>
-  count(model, name = "n_out")
-
-ggplot(regret, aes(x = model, y = regret)) +
-  ggdist::stat_halfeye(
-    adjust = 1, width = 0.5, justification = -0.2,
-    .width = 0, point_colour = NA,
-    fill = "#A0B4C8", alpha = 0.7
-  ) +
-  geom_boxplot(width = 0.15, outlier.shape = NA, alpha = 0.5) +
-  geom_jitter(width = 0.05, alpha = 0.15, size = 0.8, colour = "#2C3E50") +
-  geom_text(data = regret_out,
-            aes(x = model, y = regret_cap * 0.97, label = paste0("n = ", n_out, " above")),
-            size = 3, colour = "grey30", inherit.aes = FALSE) +
-  coord_cartesian(ylim = c(0, regret_cap), expand = FALSE) +
-  labs(x = NULL, y = "OOS regret [0, 1] (0 = best model for that person)") +
   theme_bs()
 ```
 

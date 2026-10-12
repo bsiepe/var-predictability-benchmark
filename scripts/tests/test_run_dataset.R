@@ -12,7 +12,7 @@ mock <- make_mock_openesm(seed = 1)
 interim <- preprocess_dataset(mock$data, mock$meta, cfg, dataset_id = "mock01")
 
 cfg_small <- cfg
-cfg_small$active_models <- c("mean", "ar", "var", "ri", "ml_ar", "ml_var")
+cfg_small$active_models <- c("mean", "ar", "var", "lasso_var", "ri", "ml_ar", "ml_var")
 cfg_small$ml_var.max_p <- 1  # mock has 3 items, so ml_var falls back to uncorrelated RE
 result <- suppressMessages(run_dataset(interim, cfg_small))
 issues <- result$meta$fit_issues
@@ -21,7 +21,7 @@ issues <- result$meta$fit_issues
 stopifnot(nrow(issues) == length(cfg_small$active_models) * length(.fit_issue_types),
           setequal(issues$type, .fit_issue_types),
           is.integer(issues$n), all(issues$n >= 0),
-          all(issues$level[issues$model %in% c("mean", "ar", "var")] == "person"),
+          all(issues$level[issues$model %in% c("mean", "ar", "var", "lasso_var")] == "person"),
           all(issues$level[issues$model %in% c("ri", "ml_ar", "ml_var")] == "dataset"))
 cat("fit_issues: one row per model and type: PASS\n")
 
@@ -29,6 +29,10 @@ cat("fit_issues: one row per model and type: PASS\n")
 person <- issues$level == "person"
 stopifnot(all(issues$n[person & issues$type %in% c("singular", "convergence")] == 0),
           all(issues$n[!person & issues$type == "rank_deficient"] == 0),
+          # glmnet zeroes constant or collinear lags instead of failing, so lasso_var raises only
+          # boundary selections, and nothing else raises those
+          all(issues$n[issues$model == "lasso_var" & issues$type != "lasso_boundary"] == 0),
+          all(issues$n[issues$model != "lasso_var" & issues$type == "lasso_boundary"] == 0),
           sum(issues$n[!person & issues$type == "singular"]) > 0)
 cat("fit_issues: types separated by model family: PASS\n")
 
@@ -39,7 +43,8 @@ stopifnot(result$meta$n_fit_steps == 1 + max(n_folds),
           result$meta$p == length(interim$items),
           all(issues$n[!person & issues$type == "singular"] <=
                 result$meta$n_fit_steps * result$meta$p),
-          all(issues$n[person & issues$type == "rank_deficient"] <= result$meta$n_person_fits))
+          all(issues$n[person & issues$type %in% c("rank_deficient", "lasso_boundary")] <=
+                result$meta$n_person_fits))
 cat("fit_issues: denominators consistent with counts: PASS\n")
 
 # 4. ml_var fallback is recorded

@@ -34,6 +34,8 @@ cat(sprintf("ar    mean in-sample R2   : %.3f\n", agg("ar", "in")))
 cat(sprintf("ar    mean OOS R2         : %.3f\n", agg("ar", "oos")))
 cat(sprintf("var   mean in-sample R2   : %.3f\n", agg("var", "in")))
 cat(sprintf("var   mean OOS R2         : %.3f\n", agg("var", "oos")))
+cat(sprintf("lasso_var mean in-sample R2: %.3f\n", agg("lasso_var", "in")))
+cat(sprintf("lasso_var mean OOS R2      : %.3f\n", agg("lasso_var", "oos")))
 cat(sprintf("ri    mean in-sample R2   : %.3f\n", agg("ri", "in")))
 cat(sprintf("ri    mean OOS R2         : %.3f\n", agg("ri", "oos")))
 cat(sprintf("locf  mean in-sample R2   : %.3f\n", agg("locf", "in")))
@@ -54,6 +56,10 @@ ok <- abs(agg("ar", "in") - truth_R2) < 0.05 &&
       agg("trend", "in") >= agg("mean", "in") - 1e-10 &&
       agg("var", "in") >= agg("ar", "in") - 1e-10 &&   # VAR nests AR(1)
       is.finite(agg("var", "oos")) &&
+      # every LASSO fit lies between the intercept-only fit and OLS in-sample
+      agg("var", "in") >= agg("lasso_var", "in") - 1e-10 &&
+      agg("lasso_var", "in") >= agg("mean", "in") - 1e-10 &&
+      is.finite(agg("lasso_var", "oos")) &&
       is.finite(agg("ri", "in")) && is.finite(agg("ri", "oos")) &&
       is.finite(agg("ml_ar", "in")) && is.finite(agg("ml_ar", "oos")) &&
       agg("ml_ar", "oos") > agg("mean", "oos") &&

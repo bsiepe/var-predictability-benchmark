@@ -26,8 +26,8 @@ execute:
 
 <!--
 Read-only report. Reads cached results from output/ and never refits.
-Primary outcome: person-level RMSE on [0,1]-rescaled items.
-Secondary: R². Figures written to figures/.
+Primary outcome: OOS MSE relative to the rolling mean model, geometric mean over items.
+Absolute RMSE on [0,1]-rescaled items is reported descriptively. Figures written to figures/.
 -->
 
 # Preparation
@@ -45,10 +45,11 @@ library(tidybayes)
 source(here("scripts", "00_plotting_functions.R"))
 
 combined <- readRDS(here("output", "meta", "combined.rds"))
-metrics <- readRDS(here("output", "analysis", "metrics.rds"))
 dataset_meta <- readRDS(here("output", "analysis", "dataset_meta.rds"))
 features <- readRDS(here("output", "analysis", "features.rds"))
 fit_issues <- readRDS(here("output", "analysis", "fit_issues.rds"))
+fit_times <- readRDS(here("output", "analysis", "fit_times.rds"))
+rel_mse_drops <- readRDS(here("output", "analysis", "rel_mse_drops.rds"))
 
 model_order <- c("mean", "locf", "trend", "ri", "ar", "var", "ml_ar", "ml_var")
 model_labels <- c("Mean", "LOCF", "Trend", "RI", "AR", "VAR", "mlAR", "mlVAR")
@@ -111,6 +112,23 @@ dataset_meta |>
                              "Excluded: zero variance"))
 ```
 
+```{r}
+#| label: tbl-exclusions-relmse
+#| tbl-cap: "Persons without a defined OOS relative MSE, per dataset, reason and model. zero_model: the model predicts an item exactly. zero_reference: the mean model predicts an item exactly. missing: an item has no scored predictions. Persons are excluded only for the affected model."
+
+rel_mse_drops |>
+  filter(set == "oos") |>
+  left_join(select(dataset_meta, dataset_id, first_author, year), by = "dataset_id") |>
+  mutate(dataset = paste0(first_author, " (", year, ")"),
+         model = factor(model, levels = model_order, labels = model_labels)) |>
+  arrange(model) |>
+  pivot_wider(id_cols = c(dataset, reason_na), names_from = model, values_from = n,
+              values_fill = 0) |>
+  arrange(dataset, reason_na) |>
+  rename(Dataset = dataset, Reason = reason_na) |>
+  knitr::kable()
+```
+
 ## Non-Convergence
 
 ```{r}
@@ -154,6 +172,37 @@ failed |>
   select(Dataset, starts_with("Rank-deficient"), starts_with("Singular"),
          `Convergence warnings`, `Other warnings`, `Failed models`, `mlVAR uncorrelated RE`) |>
   knitr::kable()
+```
+
+
+## Computation Times
+
+```{r}
+#| label: tbl-computation-time
+#| tbl-cap: "CPU time per model for the full rolling-origin evaluation, including all refits."
+
+# fits per person (person-level models) and per item and step (lmer models) are not comparable
+# units, so times are compared per dataset rather than per fit
+fit_times |>
+  summarise(total_min = sum(cpu_sec) / 60, median_sec = median(cpu_sec),
+            max_sec = max(cpu_sec), .by = model) |>
+  mutate(model = factor(model, levels = model_order, labels = model_labels)) |>
+  arrange(model) |>
+  knitr::kable(digits = 1, col.names = c("Model", "Total CPU time (min)",
+                                         "Median per dataset (s)", "Slowest dataset (s)"))
+```
+
+```{r}
+#| label: computation-machine
+# times are only comparable between models run on the same machine
+unique(fit_times$cpu)
+```
+
+```{r}
+#| label: tbl-computation-times
+#| tbl-cap: "Average computation time (in seconds) for each model and dataset."
+
+
 ```
 
 ## Extreme Relative Errors
@@ -214,7 +263,8 @@ features$oos |>
 
 ## Average RMSE across datasets
 
-We first look at the average RMSE across all datasets for each model. The RMSE values are calculated per person and per variable, and we average them across all variables for each person in a dataset.
+We first look at the average RMSE across all datasets for each model. 
+
 ```{r}
 #| label: fig-rmse-ladder
 #| fig-cap: "Out-of-sample RMSE by model complexity. Each point is one person."
@@ -248,11 +298,68 @@ ggplot(dat_oos, aes(x = model, y = rmse)) +
   ) +
   geom_text(
     data = outliers,
-    aes(x = model, y = y_cap * 0.88, label = paste0("n=", n_out, "outliers")),
+    aes(x = model, y = y_cap * 0.88, label = paste0("n = ", n_out, " outliers")),
     size = 3, colour = "grey30", inherit.aes = FALSE
   ) +
   coord_cartesian(ylim = c(0, y_cap), expand = FALSE) +
   labs(x = NULL, y = "Out-of-sample RMSE [0, 1]") +
+  theme_bs()
+```
+
+## Relative MSE across datasets
+
+```{r}
+#| label: fig-relmse-ladder
+#| fig-cap: "Out-of-sample MSE relative to the mean model by model complexity. Points are persons. Distributions show the median with 50% and 90% intervals. Values below 1 mean lower error than the mean model."
+#| fig-height: 5.5
+#| fig-width: 8
+
+# the mean model is the reference with rel_mse = 1 by construction, so it is not shown
+is_reference <- model_order == "mean"
+
+set.seed(1)
+dat_rel <- combined |>
+  filter(set == "oos", model != "mean", is.finite(rel_mse)) |>
+  mutate(model = factor(model, levels = model_order[!is_reference],
+                        labels = model_labels[!is_reference]),
+         # persons are drawn left of the distribution, jittered horizontally
+         x_points = as.numeric(model) - 0.2 + runif(n(), -0.07, 0.07))
+
+# symmetric around 1 on the log axis
+rel_lim <- c(0.25, 4)
+
+rel_beyond <- dat_rel |>
+  summarise(n_below = sum(rel_mse < rel_lim[1]), n_above = sum(rel_mse > rel_lim[2]),
+            .by = model)
+
+# medians in the axis labels, so the panel stays free of text
+rel_medians <- dat_rel |>
+  summarise(median = median(rel_mse), .by = model)
+axis_labels <- setNames(sprintf("%s\nMdn %.2f", rel_medians$model, rel_medians$median),
+                        rel_medians$model)
+
+ggplot(dat_rel, aes(x = model, y = rel_mse)) +
+  geom_hline(yintercept = 1, colour = "grey50", linetype = "dashed") +
+  geom_point(aes(x = x_points, colour = model), alpha = 0.12, size = 0.4) +
+  # each distribution is scaled to its own maximum, otherwise the narrow RI peak flattens all others
+  ggdist::stat_halfeye(aes(fill = model), normalize = "groups", scale = 0.6,
+                       .width = c(0.5, 0.9), slab_alpha = 0.7, point_size = 2.5,
+                       colour = "grey15") +
+  # counts beyond the range sit above the column of person points
+  geom_text(data = filter(rel_beyond, n_above > 0),
+            aes(x = model, y = rel_lim[2], label = paste0(n_above, " above")),
+            position = position_nudge(x = -0.2), vjust = 1.3, size = 4, colour = "grey30",
+            inherit.aes = FALSE) +
+  geom_text(data = filter(rel_beyond, n_below > 0),
+            aes(x = model, y = rel_lim[1], label = paste0(n_below, " below")),
+            position = position_nudge(x = -0.2), vjust = -0.5, size = 4, colour = "grey30",
+            inherit.aes = FALSE) +
+  scale_x_discrete(labels = axis_labels) +
+  scale_y_log10(breaks = c(0.25, 0.5, 1, 2, 4)) +
+  scale_fill_manual(values = model_palette, guide = "none") +
+  scale_colour_manual(values = model_palette, guide = "none") +
+  coord_cartesian(ylim = rel_lim) +
+  labs(x = NULL, y = "OOS MSE relative to the mean model (log scale)") +
   theme_bs()
 ```
 
@@ -289,19 +396,21 @@ row_order <- is_oos |>
   arrange(oos - is) |>
   pull(dataset)
 
-is_oos <- mutate(is_oos, dataset = factor(dataset, levels = union(row_order, dataset)))
-
-is_oos_points <- is_oos |>
-  pivot_longer(c(is, oos), names_to = "set", values_to = "rmse") |>
-  mutate(set = factor(set, levels = c("is", "oos"), labels = c("In-sample", "Out-of-sample")))
-
 # points beyond the cap are drawn at the cap and labelled with their value
 x_cap <- 0.4
 
+is_oos <- is_oos |>
+  mutate(dataset = factor(dataset, levels = union(row_order, dataset)),
+         is_plot = pmin(is, x_cap), oos_plot = pmin(oos, x_cap))
+
+is_oos_points <- is_oos |>
+  pivot_longer(c(is, oos), names_to = "set", values_to = "rmse") |>
+  mutate(set = factor(set, levels = c("is", "oos"), labels = c("In-sample", "Out-of-sample")),
+         rmse_plot = pmin(rmse, x_cap))
+
 ggplot(is_oos, aes(y = dataset)) +
-  geom_segment(aes(x = pmin(is, x_cap), xend = pmin(oos, x_cap), colour = direction),
-               linewidth = 0.8) +
-  geom_point(data = is_oos_points, aes(x = pmin(rmse, x_cap), fill = set),
+  geom_segment(aes(x = is_plot, xend = oos_plot, colour = direction), linewidth = 0.8) +
+  geom_point(data = is_oos_points, aes(x = rmse_plot, fill = set),
              shape = 21, colour = "grey30", size = 1.8, stroke = 0.3) +
   geom_text(data = filter(is_oos_points, rmse > x_cap),
             aes(x = x_cap, label = sprintf("%.2f", rmse)),
@@ -375,7 +484,6 @@ rel_wide <- combined |>
   pivot_wider(names_from = model, values_from = rel_mse)
 
 # persons need all five models for the components to add up
-n_incomplete <- sum(!complete.cases(rel_wide[decomp_models]))
 rel_wide <- filter(rel_wide, if_all(all_of(decomp_models), is.finite))
 
 # MSE ratio after vs. before each step. on the log axis, the steps of a path add up to the total.

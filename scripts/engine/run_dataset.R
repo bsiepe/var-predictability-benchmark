@@ -2,12 +2,14 @@
 # This is the main function that runs all active models on a dataset and computes performance metrics
 
 # classify captured warnings and messages from model fitting.
-# rank_deficient comes from the OLS models (ar, var), singular and convergence from lme4
-.fit_issue_types <- c("rank_deficient", "singular", "convergence", "other")
+# rank_deficient comes from the OLS models (ar, var), lasso_boundary from lasso_var, singular and
+# convergence from lme4
+.fit_issue_types <- c("rank_deficient", "lasso_boundary", "singular", "convergence", "other")
 .classify_fit_issue <- function(msg) {
   ifelse(grepl("rank-deficient OLS fit", msg), "rank_deficient",
-         ifelse(grepl("isSingular", msg), "singular",
-                ifelse(grepl("failed to converge", msg), "convergence", "other")))
+         ifelse(grepl("lasso selection at the smallest admissible lambda", msg), "lasso_boundary",
+                ifelse(grepl("isSingular", msg), "singular",
+                       ifelse(grepl("failed to converge", msg), "convergence", "other"))))
 }
 
 # write to the log directly, so that the message handler below does not capture it again

@@ -179,6 +179,57 @@ var_predict <- function(fitted, test) {
   Yhat
 }
 
+#--------------- Regularised VAR
+# by-equation LASSO with lambda chosen by EBIC on the training window, so the selection never sees
+# the test point. returns the intercept followed by the lag coefficients for one equation, and
+# whether the selection sits at the smallest admissible lambda (end of the path or the df cap),
+# where a longer path might have chosen a denser model
+.lasso_coefs <- function(X, y, own, spec) {
+  # glmnet stops on a constant response or when no predictor varies; the empty model is the mean
+  if (stats::var(y) == 0 || all(apply(X, 2, stats::var) == 0)) {
+    return(list(coefs = c(mean(y), numeric(ncol(X))), at_boundary = FALSE))
+  }
+  penalized <- rep(TRUE, ncol(X))
+  if (!spec$penalize_ar) penalized[own] <- FALSE
+  n <- length(y)
+  fit <- glmnet::glmnet(X, y, alpha = 1, penalty.factor = as.numeric(penalized),
+                        lambda.min.ratio = spec$lambda_min_ratio)
+  # residual sum of squares at each lambda for the gaussian family
+  rss <- stats::deviance(fit)
+  # EBIC as in graphicalVAR, restricted to beta (no kappa here); gamma = 0 is BIC:
+  # https://github.com/SachaEpskamp/graphicalVAR/blob/11c503143e69b2c6a46cff527370c0ff4c66b921/R/Rothmana.R#L105-L115
+  # n_selected is pdB there: penalized nonzero slopes only. an unpenalized own lag is in every
+  # path point or in none, so leaving it out shifts all values equally.
+  # n_vars is nY there; our X has no intercept column, so ncol(X) is the number of variables
+  n_selected <- colSums(as.matrix(fit$beta[penalized, , drop = FALSE]) != 0)
+  n_vars <- ncol(X)
+  ebic <- n * log(rss / n) + n_selected * (log(n) + 4 * spec$ebic_gamma * log(2 * n_vars))
+  # fit$df counts slopes only, the + 1 is the intercept
+  ebic[n - (fit$df + 1) < spec$min_resid_df] <- Inf
+  # the first lambda has no penalized slopes, so it always passes the cap. rss > 0 holds for any
+  # lambda > 0 and glmnet's devmax; a zero would make ebic -Inf and win regardless of fit
+  stopifnot(!anyNA(ebic), ebic[1] < Inf, all(rss > 0))
+  best <- which.min(ebic)
+  list(coefs = c(fit$a0[best], fit$beta[, best]), at_boundary = best == max(which(ebic < Inf)))
+}
+
+# person-specific VAR(1) by LASSO; same coefs layout as var_fit, so var_predict applies
+lasso_var_fit <- function(train, spec) {
+  rows <- train$valid
+  Y <- train$Y[rows, , drop = FALSE]
+  X <- train$Ylag[rows, , drop = FALSE]
+  coefs <- matrix(NA_real_, nrow = ncol(X) + 1, ncol = ncol(Y), dimnames = list(NULL, colnames(Y)))
+  at_boundary <- FALSE
+  for (v in seq_len(ncol(Y))) {
+    equation <- .lasso_coefs(X, Y[, v], v, spec)
+    coefs[, v] <- equation$coefs
+    at_boundary <- at_boundary || equation$at_boundary
+  }
+  # raised at most once per fit call, so counts equal the number of affected fits
+  if (at_boundary) warning("lasso selection at the smallest admissible lambda", call. = FALSE)
+  list(coefs = coefs)
+}
+
 # builds the lmer formula string for one outcome variable in ml_var
 .ml_var_formula <- function(v, lag_vars, re_corr) {
   sep   <- if (re_corr) " | " else " || "
@@ -229,6 +280,7 @@ model_registry <- list(
   ri    = list(label = "Random intercept", level = "dataset", fit = ri_fit,  predict = ri_predict),
   ar    = list(label = "AR(1)",  level = "person",  fit = ar_fit, predict = ar_predict),
   var   = list(label = "VAR(1)",  level = "person",  fit = var_fit,   predict = var_predict),
+  lasso_var = list(label = "LASSO VAR(1)", level = "person", fit = lasso_var_fit, predict = var_predict),
   ml_ar = list(label = "Multilevel AR(1)",  level = "dataset", fit = ml_ar_fit,   predict = ml_ar_predict),
   ml_var = list(label = "Multilevel VAR(1)",   level = "dataset", fit = ml_var_fit,  predict = ml_var_predict)
 )

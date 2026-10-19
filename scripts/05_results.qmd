@@ -104,6 +104,18 @@ dataset_meta |>
                              "Valid obs. per person, median [range]", "Rows per person, median"))
 ```
 
+Overall dataset and person counts, before and after exclusions.
+```{r}
+#| label: sample-totals
+
+combined |>
+  distinct(dataset_id, id, n_valid_person, n_total_person) |>
+  summarise(datasets = n_distinct(dataset_id), persons = n(),
+            valid_obs = sum(n_valid_person), rows = sum(n_total_person)) |>
+  mutate(persons_before_exclusion = sum(dataset_meta$n_persons_kept +
+                                          dataset_meta$n_persons_excluded))
+```
+
 ## Exclusions
 
 ```{r}

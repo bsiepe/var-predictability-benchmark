@@ -3,7 +3,11 @@
 
 cfg <- list(
   seed = 30583,
-  active_models = c("mean", "locf", "trend", "ri", "ar", "var", "ml_ar", "ml_var"),
+  active_models = c("mean", "locf", "trend", "ri", "ar", "var", "lasso_var", "ml_ar", "ml_var"),
+  # ebic_gamma = 0 is plain BIC; penalize_ar = FALSE leaves the own lag unpenalized;
+  # min_resid_df: residual df left after slopes and intercept; lambda_min_ratio: smallest lambda as a
+  # share of the largest, 0.05 as graphicalVAR's lambda_min_beta
+  lasso_var.spec = list(ebic_gamma = 0, penalize_ar = TRUE, min_resid_df = 1, lambda_min_ratio = 0.05),
   ml_var.spec = list(re_corr = TRUE),   # re_corr = FALSE → uncorrelated (||) for robustness
   ml_var.max_p = 12,  # if p > this, fall back to uncorrelated RE (re_corr = FALSE)
 

@@ -7,6 +7,7 @@
 #   output/analysis/dataset_meta.rds: dataset-level summary with nested model_failures
 #   output/analysis/fit_times.rds: cpu and elapsed seconds per dataset x model
 #   output/analysis/rel_mse_drops.rds: undefined relative MSE per dataset x model x reason
+#   output/analysis/lasso_mean.rds: share of lasso_var predictions equal to the mean model's
 #   output/meta/combined.rds: person x model x set with R2, RMSE, relative MSE, n, and moderators
 
 library(here)
@@ -15,7 +16,7 @@ library(purrr)
 library(readr)
 source(here("scripts", "engine", "relative.R"))
 
-MODEL_LEVELS <- c("mean", "locf", "trend", "ri", "ar", "var", "ml_ar", "ml_var")
+MODEL_LEVELS <- c("mean", "locf", "trend", "ri", "ar", "var", "lasso_var", "ml_ar", "ml_var")
 
 result_files <- list.files(here("output", "results"), pattern = "\\.rds$",
                            full.names = TRUE)
@@ -124,8 +125,14 @@ missing_times <- map_chr(keep(results, \(r) is.null(r$meta$fit_time)), "dataset_
 if (length(missing_times) > 0)
   warning("missing fit_time (re-run fit_one.R): ", paste(missing_times, collapse = ", "))
 
+# --- lasso_var forecasts identical to the mean model's (upper bound on empty selections) ---
+lasso_mean <- results |>
+  map(\(r) lasso_mean_share(mutate(r$oos, dataset_id = r$dataset_id, id = as.character(id)))) |>
+  bind_rows()
+
 # --- save ---
 dir.create(here("output", "analysis"), showWarnings = FALSE, recursive = TRUE)
+saveRDS(lasso_mean, here("output", "analysis", "lasso_mean.rds"))
 saveRDS(fit_issues, here("output", "analysis", "fit_issues.rds"))
 saveRDS(fit_times, here("output", "analysis", "fit_times.rds"))
 saveRDS(metrics, here("output", "analysis", "metrics.rds"))

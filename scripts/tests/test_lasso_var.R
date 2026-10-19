@@ -261,8 +261,9 @@ single_item <- tryCatch(lasso_var_fit(subset_modeldata(person, which(person$vali
 stopifnot(is.character(single_item), grepl("2 or more columns", single_item))
 cat("edge cases (constant response, constant lags, n < p, single item): PASS\n")
 
-# 11. empty-selection share in the collection step: 1 under a prohibitive penalty, below 1 at the
-#     default. a failed lasso_var leaves no rows; a lasso_var row without a mean row stops
+# 11. share of forecasts equal to the mean model's in the collection step: 1 under a prohibitive
+#     penalty, below 1 at the default. a failed lasso_var leaves no rows; a lasso_var row without
+#     a mean row stops
 oos_mock <- function(lasso_spec) {
   # boundary warnings are tested above
   lasso_oos <- suppressWarnings(crossval_model(interim$persons, lasso, cfg$cv, lasso_spec))
@@ -271,14 +272,14 @@ oos_mock <- function(lasso_spec) {
     transform(dataset_id = "mock01")
 }
 oos_default <- oos_mock(spec)
-share_default <- lasso_empty_share(oos_default)
-share_prohibitive <- lasso_empty_share(oos_mock(modifyList(spec, list(ebic_gamma = 1e6))))
+share_default <- lasso_mean_share(oos_default)
+share_prohibitive <- lasso_mean_share(oos_mock(modifyList(spec, list(ebic_gamma = 1e6))))
 print(share_default)
-stopifnot(setequal(share_default$set, c("in", "oos")), all(share_default$share_empty < 1),
-          all(share_prohibitive$share_empty == 1))
-stopifnot(nrow(lasso_empty_share(oos_default[oos_default$model == "mean", ])) == 0)
+stopifnot(setequal(share_default$set, c("in", "oos")), all(share_default$share_equals_mean < 1),
+          all(share_prohibitive$share_equals_mean == 1))
+stopifnot(nrow(lasso_mean_share(oos_default[oos_default$model == "mean", ])) == 0)
 orphan <- oos_default[!(oos_default$model == "mean" & oos_default$id == oos_default$id[1]), ]
-stopifnot(inherits(tryCatch(lasso_empty_share(orphan), error = identity), "error"))
-cat("empty-selection share: PASS\n")
+stopifnot(inherits(tryCatch(lasso_mean_share(orphan), error = identity), "error"))
+cat("share of forecasts equal to the mean: PASS\n")
 
 cat("all lasso_var tests passed\n")

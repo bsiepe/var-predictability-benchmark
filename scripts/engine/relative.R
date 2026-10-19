@@ -63,6 +63,27 @@ relative_mse <- function(metrics, zero_tol = 1e-10) {
     dplyr::select(dataset_id, id, model, set, rel_mse, gm_mse, reason_na)
 }
 
+# share of lasso_var predictions that equal the mean model's, per dataset x set. an upper bound on
+# the share of empty selections: with every slope shrunk to zero the intercept is the training mean,
+# and a nonempty fit only matches when beta' (x_t - training mean of x) happens to be 0.
+# oos needs dataset_id, id, variable, set, t, model, yhat
+lasso_mean_share <- function(oos, tol = 1e-10) {
+  key <- c("dataset_id", "id", "variable", "set", "t")
+  lasso <- oos |>
+    dplyr::filter(model == "lasso_var") |>
+    dplyr::select(dplyr::all_of(key), yhat_lasso = yhat)
+  reference <- oos |>
+    dplyr::filter(model == "mean") |>
+    dplyr::select(dplyr::all_of(key), yhat_mean = yhat)
+  # a lasso_var row without a mean row is a bug upstream; mean rows without lasso_var rows are
+  # datasets where lasso_var failed, recorded in model_failures
+  dplyr::inner_join(lasso, reference, by = key, relationship = "one-to-one",
+                    unmatched = c("error", "drop")) |>
+    dplyr::summarise(n_predictions = dplyr::n(),
+                     share_equals_mean = mean(abs(yhat_lasso - yhat_mean) < tol),
+                     .by = c(dataset_id, set))
+}
+
 # adds <var>_between (group mean, centred with every group weighted equally) and
 # <var>_within (deviation from the group mean)
 split_between_within <- function(data, var, group) {

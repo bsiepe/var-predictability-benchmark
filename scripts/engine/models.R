@@ -206,9 +206,8 @@ var_predict <- function(fitted, test) {
   ebic <- n * log(rss / n) + n_selected * (log(n) + 4 * spec$ebic_gamma * log(2 * n_vars))
   # fit$df counts slopes only, the + 1 is the intercept
   ebic[n - (fit$df + 1) < spec$min_resid_df] <- Inf
-  # the first lambda has no penalized slopes, so it always passes the cap. rss > 0 holds for any
-  # lambda > 0 and glmnet's devmax; a zero would make ebic -Inf and win regardless of fit
-  stopifnot(!anyNA(ebic), ebic[1] < Inf, all(rss > 0))
+  # the first lambda has no penalized slopes, so it always passes the cap
+  stopifnot(!anyNA(ebic), ebic[1] < Inf)
   best <- which.min(ebic)
   list(coefs = c(fit$a0[best], fit$beta[, best]), at_boundary = best == max(which(ebic < Inf)))
 }

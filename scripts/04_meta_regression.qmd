@@ -51,6 +51,13 @@ df_meta <- readRDS(here::here("output", "meta", "combined.rds"))
 # params only exists during knitr rendering, fall back to FALSE interactively
 refit_models <- isTRUE(if (exists("params")) params$refit_models else FALSE)
 
+# the cache file names outlive likelihood changes, so a stale cache would otherwise load silently
+read_fit <- function(path, family) {
+  fit <- readRDS(path)
+  stopifnot(stats::family(fit)$family == family)
+  fit
+}
+
 ```
 
 
@@ -82,11 +89,11 @@ df_meta |>
 # Meta Regression for Relative MSE
 
 
-## Log-Normal Models
+## Student-t Models
 
 
 ### Fixed-Effect for Model, Random-Effect for Dataset (M1)
-We now fit a simple meta regression model for the relative MSE with a log-normal distribution and default priors. 
+We now fit a simple meta regression model for the log relative MSE with a Student-t likelihood.
 
 ```{r}
 #| label: meta-relmse-m1
@@ -97,16 +104,18 @@ priors_rel <- c(
   prior(exponential(2), class = sd),
   prior(normal(-1, 1), class = b, dpar = sigma)
 )
+# the brms default for nu, stated so that it is reported. the lognormal S1 has no nu
+priors_t <- c(priors_rel, prior(gamma(2, 0.1), class = nu))
 
 if (refit_models || !file.exists(model_path)) {
   fit_relmse_m1 <- brm(
     # no intercept: the mean model is the reference and already divided out of rel_mse,
-    # so each coefficient is that model's log relative MSE
-    bf(rel_mse ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
+    # so each coefficient is that model's location of log relative MSE
+    bf(log(rel_mse) ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
        sigma ~ 0 + model),
     data = df_rel,
-    family = lognormal(),
-    prior = priors_rel,
+    family = student(),
+    prior = priors_t,
     chains = 4,
     cores = 4,
     iter = 3000,
@@ -116,17 +125,17 @@ if (refit_models || !file.exists(model_path)) {
 
   saveRDS(fit_relmse_m1, model_path)
 } else {
-  fit_relmse_m1 <- readRDS(model_path)
+  fit_relmse_m1 <- read_fit(model_path, "student")
 }
 ```
 
-These priors are: 
+These priors are:
 
 ```{r}
-#| label: priors-rmse-lognormal
+#| label: priors-relmse-m1
 brms::prior_summary(fit_relmse_m1) |>
   dplyr::select(prior, class, coef, group) |>
-  pander::pander(caption = "Priors for the log-normal meta regression model for RMSE.")
+  pander::pander(caption = "Priors for the Student-t meta regression model M1.")
 ```
 
 ```{r}
@@ -137,31 +146,30 @@ if (refit_models || !file.exists(model_path)) {
   fit_relmse_m1_prior <- update(fit_relmse_m1, sample_prior = "only", seed = seed)
   saveRDS(fit_relmse_m1_prior, model_path)
 } else {
-  fit_relmse_m1_prior <- readRDS(model_path)
+  fit_relmse_m1_prior <- read_fit(model_path, "student")
 }
 
-bayesplot::pp_check(fit_relmse_m1_prior, type = "dens_overlay", ndraws = 50) +
-  ggplot2::scale_x_log10()
+# the response is already log(rel_mse), so no log axis
+bayesplot::pp_check(fit_relmse_m1_prior, type = "dens_overlay", ndraws = 50)
 ```
 
-Here's the summary of the model: 
+Here's the summary of the model:
 ```{r}
-#| label: summary-rmse-lognormal
+#| label: summary-relmse-m1
 parameters::model_parameters(fit_relmse_m1, test = "pd")
 ```
 
-Here's a traceplot of some main parameters: 
+Here's a traceplot of some main parameters:
 
 ```{r}
-#| label: traceplot-rmse-lognormal
+#| label: traceplot-relmse-m1
 bayesplot::mcmc_trace(fit_relmse_m1, regex_pars = "^b_")
 ```
 
 Here's a posterior predictive check of the model:
 ```{r}
-#| label: ppcheck-rmse-lognormal
-bayesplot::pp_check(fit_relmse_m1, type = "dens_overlay_grouped", group = "model", ndraws = 50) +
-  ggplot2::scale_x_log10()
+#| label: ppcheck-relmse-m1
+bayesplot::pp_check(fit_relmse_m1, type = "dens_overlay_grouped", group = "model", ndraws = 50)
 ```
 
 
@@ -189,12 +197,12 @@ model_path <- here::here("output", "analysis", "fit_relmse_m2.rds")
 if (refit_models || !file.exists(model_path)) {
   fit_relmse_m2 <- brm(
     # one between and one within slope per model
-    bf(rel_mse ~ 0 + model + model:log_n_between + model:log_n_within +
+    bf(log(rel_mse) ~ 0 + model + model:log_n_between + model:log_n_within +
          (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
        sigma ~ 0 + model),
     data = df_rel,
-    family = lognormal(),
-    prior = priors_rel,
+    family = student(),
+    prior = priors_t,
     chains = 4,
     cores = 4,
     iter = 3000,
@@ -204,8 +212,22 @@ if (refit_models || !file.exists(model_path)) {
 
   saveRDS(fit_relmse_m2, model_path)
 } else {
-  fit_relmse_m2 <- readRDS(model_path)
+  fit_relmse_m2 <- read_fit(model_path, "student")
 }
+```
+
+```{r}
+#| label: prior-predictive-m2
+model_path <- here::here("output", "analysis", "fit_relmse_m2_prior.rds")
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_m2_prior <- update(fit_relmse_m2, sample_prior = "only", seed = seed)
+  saveRDS(fit_relmse_m2_prior, model_path)
+} else {
+  fit_relmse_m2_prior <- read_fit(model_path, "student")
+}
+
+bayesplot::pp_check(fit_relmse_m2_prior, type = "dens_overlay", ndraws = 50)
 ```
 
 ```{r}
@@ -236,13 +258,13 @@ model_path <- here::here("output", "analysis", "fit_relmse_m3.rds")
 
 if (refit_models || !file.exists(model_path)) {
   fit_relmse_m3 <- brm(
-    bf(rel_mse ~ 0 + model + model:log_n_between + model:log_n_within +
+    bf(log(rel_mse) ~ 0 + model + model:log_n_between + model:log_n_within +
          model:rho1_between + model:rho1_within +
          (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
        sigma ~ 0 + model),
     data = df_m3,
-    family = lognormal(),
-    prior = priors_rel,
+    family = student(),
+    prior = priors_t,
     chains = 4,
     cores = 4,
     iter = 3000,
@@ -252,8 +274,22 @@ if (refit_models || !file.exists(model_path)) {
 
   saveRDS(fit_relmse_m3, model_path)
 } else {
-  fit_relmse_m3 <- readRDS(model_path)
+  fit_relmse_m3 <- read_fit(model_path, "student")
 }
+```
+
+```{r}
+#| label: prior-predictive-m3
+model_path <- here::here("output", "analysis", "fit_relmse_m3_prior.rds")
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_m3_prior <- update(fit_relmse_m3, sample_prior = "only", seed = seed)
+  saveRDS(fit_relmse_m3_prior, model_path)
+} else {
+  fit_relmse_m3_prior <- read_fit(model_path, "student")
+}
+
+bayesplot::pp_check(fit_relmse_m3_prior, type = "dens_overlay", ndraws = 50)
 ```
 
 ```{r}
@@ -263,7 +299,7 @@ parameters::model_parameters(fit_relmse_m3, test = "pd")
 
 # Sensitivity Analyses
 
-## Student-t Likelihood (S1)
+## Log-Normal Likelihood (S1)
 
 ```{r}
 #| label: meta-relmse-s1
@@ -271,11 +307,10 @@ model_path <- here::here("output", "analysis", "fit_relmse_s1.rds")
 
 if (refit_models || !file.exists(model_path)) {
   fit_relmse_s1 <- brm(
-    # M1 on the log scale with heavier tails, which downweights persons where a model fails badly
-    bf(log(rel_mse) ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
+    bf(rel_mse ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
        sigma ~ 0 + model),
     data = df_rel,
-    family = student(),
+    family = lognormal(),
     prior = priors_rel,
     chains = 4,
     cores = 4,
@@ -286,7 +321,7 @@ if (refit_models || !file.exists(model_path)) {
 
   saveRDS(fit_relmse_s1, model_path)
 } else {
-  fit_relmse_s1 <- readRDS(model_path)
+  fit_relmse_s1 <- read_fit(model_path, "lognormal")
 }
 ```
 
@@ -298,11 +333,11 @@ if (refit_models || !file.exists(model_path)) {
   fit_relmse_s1_prior <- update(fit_relmse_s1, sample_prior = "only", seed = seed)
   saveRDS(fit_relmse_s1_prior, model_path)
 } else {
-  fit_relmse_s1_prior <- readRDS(model_path)
+  fit_relmse_s1_prior <- read_fit(model_path, "lognormal")
 }
 
-# the response is already log(rel_mse), so no log axis
-bayesplot::pp_check(fit_relmse_s1_prior, type = "dens_overlay", ndraws = 50)
+bayesplot::pp_check(fit_relmse_s1_prior, type = "dens_overlay", ndraws = 50) +
+  ggplot2::scale_x_log10()
 ```
 
 ```{r}
@@ -324,15 +359,16 @@ df_raw <- df_meta |>
 priors_raw <- c(
   prior(normal(-3, 2), class = b),
   prior(exponential(2), class = sd),
-  prior(normal(-1, 1), class = b, dpar = sigma)
+  prior(normal(-1, 1), class = b, dpar = sigma),
+  prior(gamma(2, 0.1), class = nu)
 )
 
 if (refit_models || !file.exists(model_path)) {
   fit_relmse_s4 <- brm(
-    bf(gm_mse ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
+    bf(log(gm_mse) ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
        sigma ~ 0 + model),
     data = df_raw,
-    family = lognormal(),
+    family = student(),
     prior = priors_raw,
     chains = 4,
     cores = 4,
@@ -343,7 +379,7 @@ if (refit_models || !file.exists(model_path)) {
 
   saveRDS(fit_relmse_s4, model_path)
 } else {
-  fit_relmse_s4 <- readRDS(model_path)
+  fit_relmse_s4 <- read_fit(model_path, "student")
 }
 ```
 
@@ -355,11 +391,11 @@ if (refit_models || !file.exists(model_path)) {
   fit_relmse_s4_prior <- update(fit_relmse_s4, sample_prior = "only", seed = seed)
   saveRDS(fit_relmse_s4_prior, model_path)
 } else {
-  fit_relmse_s4_prior <- readRDS(model_path)
+  fit_relmse_s4_prior <- read_fit(model_path, "student")
 }
 
-bayesplot::pp_check(fit_relmse_s4_prior, type = "dens_overlay", ndraws = 50) +
-  ggplot2::scale_x_log10()
+# the response is already log(gm_mse), so no log axis
+bayesplot::pp_check(fit_relmse_s4_prior, type = "dens_overlay", ndraws = 50)
 ```
 
 ```{r}

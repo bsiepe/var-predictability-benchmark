@@ -46,7 +46,9 @@ theme_bs <- function(base_size = 14) {
 
 # Color palettes
 
+# LASSO VAR gets Hiroshige's own #528fad, which lies between the VAR and mlAR colours.
+# met.brewer("Hiroshige", 9) would instead shift the colours of the other models
 model_palette <- setNames(
-  MetBrewer::met.brewer("Hiroshige", 8),
-  c("Mean", "LOCF", "Trend", "RI", "AR", "VAR", "mlAR", "mlVAR")
+  append(as.character(MetBrewer::met.brewer("Hiroshige", 8)), "#528fad", after = 6),
+  c("Mean", "LOCF", "Trend", "RI", "AR", "VAR", "LASSO VAR", "mlAR", "mlVAR")
 )

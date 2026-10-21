@@ -273,12 +273,12 @@ ml_var_predict <- function(fitted, test_person) {
 
 #----------- Model registry
 model_registry <- list(
-  mean  = list(label = "Person mean", level = "person",  fit = mean_fit, predict = mean_predict),
-  locf  = list(label = "LOCF", level = "person", fit = locf_fit, predict = locf_predict),
+  mean = list(label = "Person mean", level = "person",  fit = mean_fit, predict = mean_predict),
+  locf = list(label = "LOCF", level = "person", fit = locf_fit, predict = locf_predict),
   trend = list(label = "Deterministic trend", level = "person",  fit = trend_fit, predict = trend_predict),
-  ri    = list(label = "Random intercept", level = "dataset", fit = ri_fit,  predict = ri_predict),
-  ar    = list(label = "AR(1)",  level = "person",  fit = ar_fit, predict = ar_predict),
-  var   = list(label = "VAR(1)",  level = "person",  fit = var_fit,   predict = var_predict),
+  ri = list(label = "Random intercept", level = "dataset", fit = ri_fit,  predict = ri_predict),
+  ar = list(label = "AR(1)",  level = "person",  fit = ar_fit, predict = ar_predict),
+  var = list(label = "VAR(1)",  level = "person",  fit = var_fit,   predict = var_predict),
   lasso_var = list(label = "LASSO VAR(1)", level = "person", fit = lasso_var_fit, predict = var_predict),
   ml_ar = list(label = "Multilevel AR(1)",  level = "dataset", fit = ml_ar_fit,   predict = ml_ar_predict),
   ml_var = list(label = "Multilevel VAR(1)",   level = "dataset", fit = ml_var_fit,  predict = ml_var_predict)

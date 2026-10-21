@@ -32,10 +32,14 @@ DATASET_IDS  := $(shell $(RSCRIPT) --vanilla -e \
 INTERIM      := $(patsubst %,data/interim/%.rds,$(DATASET_IDS))
 RESULTS      := $(patsubst %,output/results/%.rds,$(DATASET_IDS))
 FEATURES     := output/analysis/features.rds
+# outputs of 03_collect_results.R that downstream steps read
+COLLECTED    := output/meta/combined.rds output/analysis/lasso_mean.rds
 META_MODELS  := output/analysis/fit_relmse_m1.rds \
 				output/analysis/fit_relmse_m2.rds \
 				output/analysis/fit_relmse_m3.rds \
 				output/analysis/fit_relmse_m1_prior.rds \
+				output/analysis/fit_relmse_m2_prior.rds \
+				output/analysis/fit_relmse_m3_prior.rds \
 				output/analysis/fit_relmse_s1.rds \
 				output/analysis/fit_relmse_s1_prior.rds \
 				output/analysis/fit_relmse_s4.rds \
@@ -56,7 +60,7 @@ output/results/%.rds: data/interim/%.rds $(ENGINE_DEPS)
 	$(RSCRIPT) scripts/fit_one.R $* > output/logs/$*.log 2>&1
 
 # ---- Aggregation & reports -----------------------------------------------------
-output/meta/combined.rds: $(RESULTS) scripts/03_collect_results.R scripts/engine/relative.R
+$(COLLECTED) &: $(RESULTS) scripts/03_collect_results.R scripts/engine/relative.R
 	$(RSCRIPT) scripts/03_collect_results.R
 
 meta: $(META_MODELS)
@@ -72,7 +76,7 @@ $(FEATURES): $(INTERIM) $(RESULTS) scripts/03b_features.R scripts/engine/feature
 
 features: $(FEATURES)
 
-reports: meta features
+reports: meta features $(COLLECTED)
 	quarto render scripts/05_results.qmd
 	quarto render scripts/01_descriptives.qmd
 

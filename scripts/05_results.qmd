@@ -52,11 +52,12 @@ combined <- readRDS(here("output", "meta", "combined.rds"))
 dataset_meta <- readRDS(here("output", "analysis", "dataset_meta.rds"))
 features <- readRDS(here("output", "analysis", "features.rds"))
 fit_issues <- readRDS(here("output", "analysis", "fit_issues.rds"))
+lasso_mean <- readRDS(here("output", "analysis", "lasso_mean.rds"))
 fit_times <- readRDS(here("output", "analysis", "fit_times.rds"))
 rel_mse_drops <- readRDS(here("output", "analysis", "rel_mse_drops.rds"))
 
-model_order <- c("mean", "locf", "trend", "ri", "ar", "var", "ml_ar", "ml_var")
-model_labels <- c("Mean", "LOCF", "Trend", "RI", "AR", "VAR", "mlAR", "mlVAR")
+model_order <- c("mean", "locf", "trend", "ri", "ar", "var", "lasso_var", "ml_ar", "ml_var")
+model_labels <- c("Mean", "LOCF", "Trend", "RI", "AR", "VAR", "LASSO VAR", "mlAR", "mlVAR")
 
 dat_oos <- combined |>
   filter(set == "oos", is.finite(rmse), rmse > 0) |>
@@ -151,7 +152,7 @@ rel_mse_drops |>
 
 ```{r}
 #| label: tbl-nonconvergence
-#| tbl-cap: "Estimation issues per dataset. Rank-deficient fits are the share of person-level OLS fits with aliased coefficients (set to 0). Singular fits are the share of lmer fits (one per item and fit step). Convergence and other warnings are counts of warnings."
+#| tbl-cap: "Estimation issues per dataset. Rank-deficient fits are the share of person-level OLS fits with aliased coefficients (set to 0). LASSO VAR boundary fits are the share of fits in which at least one equation selects the smallest admissible lambda (end of the lambda path or the df cap). LASSO VAR equal to mean is the share of OOS predictions identical to the mean model's, an upper bound on the share of empty selections. Singular fits are the share of lmer fits (one per item and fit step). Convergence and other warnings are counts of warnings."
 
 ols_models <- c("ar", "var")
 ml_models <- c("ri", "ml_ar", "ml_var")
@@ -167,7 +168,13 @@ issue_share <- function(models, issue, labels, prefix) {
 }
 
 rank_deficient <- issue_share(ols_models, "rank_deficient", c("AR", "VAR"), "Rank-deficient:")
+lasso_boundary <- issue_share("lasso_var", "lasso_boundary", "LASSO VAR", "Boundary:")
 singular <- issue_share(ml_models, "singular", c("RI", "mlAR", "mlVAR"), "Singular:")
+
+lasso_equals_mean <- lasso_mean |>
+  filter(set == "oos") |>
+  mutate(`LASSO VAR equal to mean` = sprintf("%.0f%%", 100 * share_equals_mean)) |>
+  select(dataset_id, `LASSO VAR equal to mean`)
 
 other_issues <- fit_issues |>
   summarise(`Convergence warnings` = sum(n[type == "convergence"]),
@@ -181,13 +188,16 @@ failed <- dataset_meta |>
 
 failed |>
   left_join(rank_deficient, by = "dataset_id") |>
+  left_join(lasso_boundary, by = "dataset_id") |>
+  left_join(lasso_equals_mean, by = "dataset_id") |>
   left_join(singular, by = "dataset_id") |>
   left_join(other_issues, by = "dataset_id") |>
   arrange(first_author, year) |>
   mutate(Dataset = paste0(first_author, " (", year, ")"),
          `Failed models` = failed,
          `mlVAR uncorrelated RE` = if_else(ml_var_uncorrelated, "yes", "no")) |>
-  select(Dataset, starts_with("Rank-deficient"), starts_with("Singular"),
+  select(Dataset, starts_with("Rank-deficient"), starts_with("Boundary"),
+         `LASSO VAR equal to mean`, starts_with("Singular"),
          `Convergence warnings`, `Other warnings`, `Failed models`, `mlVAR uncorrelated RE`) |>
   knitr::kable()
 ```
@@ -682,25 +692,29 @@ ggplot(pooling, aes(x = n_train_first, y = ratio)) +
   theme_bs()
 ```
 
-## Value of cross-dynamics by data per parameter
+## Value of cross-dynamics and regularisation by data per parameter
 
 ```{r}
 #| label: fig-cross-dynamics
-#| fig-cap: "Change in OOS MSE from adding cross-lagged effects, by the number of training observations per VAR coefficient. The y-axis shows the MSE ratio of the model with vs. without cross-lags."
-#| fig-height: 5
+#| fig-cap: "Change in OOS MSE from adding cross-lagged effects and from regularising them, by the number of training observations per VAR coefficient. The y-axis shows the MSE ratio of the model after vs. before the arrow. LASSO VAR is an estimator variant of VAR, not a rung of the ladder. Its penalty applies to all lag coefficients, including the autoregressive ones, so AR → LASSO VAR combines adding cross-lags with shrinking all lags, and VAR → LASSO VAR shows the value of regularisation."
+#| fig-height: 8
 #| fig-width: 9
 
 # y-range symmetric around 1 on the log axis
 y_lim_cross <- c(0.5, 2)
+cross_levels <- c("AR → VAR", "mlAR → mlVAR", "AR → LASSO VAR", "VAR → LASSO VAR")
 
 cross_dyn <- combined |>
-  filter(set == "oos", model %in% c("ar", "var", "ml_ar", "ml_var"), is.finite(rel_mse)) |>
+  filter(set == "oos", model %in% c("ar", "var", "lasso_var", "ml_ar", "ml_var"),
+         is.finite(rel_mse)) |>
   select(dataset_id, id, model, rel_mse) |>
   pivot_wider(names_from = model, values_from = rel_mse) |>
-  mutate(`AR → VAR` = var / ar, `mlAR → mlVAR` = ml_var / ml_ar) |>
-  select(dataset_id, id, `AR → VAR`, `mlAR → mlVAR`) |>
+  mutate(`AR → VAR` = var / ar, `mlAR → mlVAR` = ml_var / ml_ar,
+         `AR → LASSO VAR` = lasso_var / ar, `VAR → LASSO VAR` = lasso_var / var) |>
+  select(dataset_id, id, all_of(cross_levels)) |>
   pivot_longer(-c(dataset_id, id), names_to = "comparison", values_to = "ratio") |>
   filter(is.finite(ratio)) |>
+  mutate(comparison = factor(comparison, levels = cross_levels)) |>
   left_join(select(features$person, dataset_id, id, obs_per_var_eq_par),
             by = c("dataset_id", "id"))
 
@@ -724,10 +738,10 @@ ggplot(cross_dyn, aes(x = obs_per_var_eq_par, y = ratio)) +
             inherit.aes = FALSE, hjust = -0.05, vjust = 1.5, size = 3, colour = "grey30") +
   scale_x_log10() +
   scale_y_log10(breaks = ratio_breaks) +
-  ggh4x::facet_wrap2(~ comparison, axes = "all") +
+  ggh4x::facet_wrap2(~ comparison, nrow = 2, axes = "all") +
   coord_cartesian(ylim = y_lim_cross) +
   labs(x = "Training observations per VAR coefficient (first fold, log scale)",
-       y = "OOS MSE ratio (log scale, < 1 = cross-lags better)") +
+       y = "OOS MSE ratio (log scale, < 1 = model after the arrow better)") +
   theme_bs()
 ```
 

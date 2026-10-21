@@ -16,6 +16,7 @@ The following package(s) have broken symlinks into the cache:
 - survival
 Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
 
+- The project is out-of-sync -- use `]8;;x-r-run:renv::status()renv::status()]8;;` for details.
 here() starts at /home/bjoern/projects/var-predictability-benchmark
 fitting mean...
 fitting locf...
@@ -171,6 +172,116 @@ fitting var...
 [var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
 [var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
 [var] WARNING: rank-deficient OLS fit: aliased coefficients set to 0
+fitting lasso_var...
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
+[lasso_var] WARNING: lasso selection at the smallest admissible lambda
 fitting ml_ar...
 fitting ml_var...
 [ml_var] p=14 > max_p=12, using uncorrelated RE
@@ -328,4 +439,4 @@ fitting ml_var...
 [ml_var] boundary (singular) fit: see help('isSingular')
 [ml_var] boundary (singular) fit: see help('isSingular')
 [ml_var] boundary (singular) fit: see help('isSingular')
-fit 0001: 50 persons x 8 models
+fit 0001: 50 persons x 9 models

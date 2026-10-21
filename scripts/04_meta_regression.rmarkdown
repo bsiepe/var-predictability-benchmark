@@ -1,0 +1,436 @@
+---
+title: "VAR Predictability Benchmark"
+subtitle: "Meta Regression"
+author: 
+ - name: Björn S. Siepe
+   orcid: 0000-0002-9558-4648
+   affiliations: University of Marburg
+date: "`r Sys.Date()`"
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+    code-tools: true
+    code-summary: "Show the code"
+    fig-width: 7
+    fig-height: 4.5
+    fig-align: "center"
+    embed-resources: true
+execute:
+  message: false
+  warning: false
+  eval: true
+params:
+  refit_models: false
+---
+
+
+# Preparation
+
+We first load all relevant packages and data.
+
+```{r}
+#| label: setup
+library(here)
+library(tibble)
+library(dplyr)
+library(brms)
+library(pander)
+library(parameters)
+library(bayesplot)
+
+seed <- 395013
+
+# load data
+df_meta <- readRDS(here::here("output", "meta", "combined.rds"))
+
+# Make passes TRUE when the upstream combined results changed
+# and direct renders reuse cached fits
+# params only exists during knitr rendering, fall back to FALSE interactively
+refit_models <- isTRUE(if (exists("params")) params$refit_models else FALSE)
+
+# the cache file names outlive likelihood changes, so a stale cache would otherwise load silently
+read_fit <- function(path, family) {
+  fit <- readRDS(path)
+  stopifnot(stats::family(fit)$family == family)
+  fit
+}
+
+```
+
+
+We then need to create unique identifiers for each individual, ensuring that the same id number is not mistaken as the same person across different datasets. We do this by combining the dataset name and the person id.
+
+```{r}
+#| label: create-unique-id
+df_meta <- df_meta |>
+  dplyr::mutate(unique_id = paste0(dataset_id, "_", id))
+```
+
+```{r}
+#| label: data-relative
+# the mean model is the reference (rel_mse = 1 by construction), so it is not a row here
+df_rel <- df_meta |>
+  dplyr::filter(set == "oos", model != "mean", is.finite(rel_mse), rel_mse > 0) |>
+  dplyr::mutate(model = droplevels(model))
+```
+
+```{r}
+#| label: excluded-relative
+# rows without a defined relative MSE, by reason (reason_na from relative_mse() in 03)
+df_meta |>
+  dplyr::filter(set == "oos", model != "mean", !is.finite(rel_mse)) |>
+  dplyr::count(model, reason_na) |>
+  pander::pander(caption = "OOS person rows excluded from the relative MSE models.")
+```
+
+# Meta Regression for Relative MSE
+
+
+## Student-t Models
+
+
+### Fixed-Effect for Model, Random-Effect for Dataset (M1)
+We now fit a simple meta regression model for the log relative MSE with a Student-t likelihood.
+
+```{r}
+#| label: meta-relmse-m1
+model_path <- here::here("output", "analysis", "fit_relmse_m1.rds")
+
+priors_rel <- c(
+  prior(normal(0, 1), class = b),
+  prior(exponential(2), class = sd),
+  prior(normal(-1, 1), class = b, dpar = sigma)
+)
+# the brms default for nu, stated so that it is reported. the lognormal S1 has no nu
+priors_t <- c(priors_rel, prior(gamma(2, 0.1), class = nu))
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_m1 <- brm(
+    # no intercept: the mean model is the reference and already divided out of rel_mse,
+    # so each coefficient is that model's location of log relative MSE
+    bf(log(rel_mse) ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
+       sigma ~ 0 + model),
+    data = df_rel,
+    family = student(),
+    prior = priors_t,
+    chains = 4,
+    cores = 4,
+    iter = 3000,
+    warmup = 1000,
+    seed = seed
+  )
+
+  saveRDS(fit_relmse_m1, model_path)
+} else {
+  fit_relmse_m1 <- read_fit(model_path, "student")
+}
+```
+
+These priors are:
+
+```{r}
+#| label: priors-relmse-m1
+brms::prior_summary(fit_relmse_m1) |>
+  dplyr::select(prior, class, coef, group) |>
+  pander::pander(caption = "Priors for the Student-t meta regression model M1.")
+```
+
+```{r}
+#| label: prior-predictive-m1
+model_path <- here::here("output", "analysis", "fit_relmse_m1_prior.rds")
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_m1_prior <- update(fit_relmse_m1, sample_prior = "only", seed = seed)
+  saveRDS(fit_relmse_m1_prior, model_path)
+} else {
+  fit_relmse_m1_prior <- read_fit(model_path, "student")
+}
+
+# the response is already log(rel_mse), so no log axis
+bayesplot::pp_check(fit_relmse_m1_prior, type = "dens_overlay", ndraws = 50)
+```
+
+Here's the summary of the model:
+```{r}
+#| label: summary-relmse-m1
+parameters::model_parameters(fit_relmse_m1, test = "pd")
+```
+
+Here's a traceplot of some main parameters:
+
+```{r}
+#| label: traceplot-relmse-m1
+bayesplot::mcmc_trace(fit_relmse_m1, regex_pars = "^b_")
+```
+
+Here's a posterior predictive check of the model:
+```{r}
+#| label: ppcheck-relmse-m1
+bayesplot::pp_check(fit_relmse_m1, type = "dens_overlay_grouped", group = "model", ndraws = 50)
+```
+
+
+### M1 + Training Length by Model (M2)
+
+```{r}
+#| label: moderator-training-length
+source(here::here("scripts", "engine", "relative.R"))
+features <- readRDS(here::here("output", "analysis", "features.rds"))
+
+# log training length split into the dataset mean (between) and the person's deviation from it (within)
+train_length <- features$person |>
+  dplyr::mutate(log_n = log(n_train_first)) |>
+  split_between_within(log_n, dataset_id) |>
+  dplyr::select(dataset_id, id, log_n_between, log_n_within)
+
+df_rel <- dplyr::left_join(df_rel, train_length, by = c("dataset_id", "id"))
+stopifnot(!anyNA(df_rel$log_n_within))
+```
+
+```{r}
+#| label: meta-relmse-m2
+model_path <- here::here("output", "analysis", "fit_relmse_m2.rds")
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_m2 <- brm(
+    # one between and one within slope per model
+    bf(log(rel_mse) ~ 0 + model + model:log_n_between + model:log_n_within +
+         (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
+       sigma ~ 0 + model),
+    data = df_rel,
+    family = student(),
+    prior = priors_t,
+    chains = 4,
+    cores = 4,
+    iter = 3000,
+    warmup = 1000,
+    seed = seed
+  )
+
+  saveRDS(fit_relmse_m2, model_path)
+} else {
+  fit_relmse_m2 <- read_fit(model_path, "student")
+}
+```
+
+```{r}
+#| label: prior-predictive-m2
+model_path <- here::here("output", "analysis", "fit_relmse_m2_prior.rds")
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_m2_prior <- update(fit_relmse_m2, sample_prior = "only", seed = seed)
+  saveRDS(fit_relmse_m2_prior, model_path)
+} else {
+  fit_relmse_m2_prior <- read_fit(model_path, "student")
+}
+
+bayesplot::pp_check(fit_relmse_m2_prior, type = "dens_overlay", ndraws = 50)
+```
+
+```{r}
+#| label: summary-relmse-m2
+parameters::model_parameters(fit_relmse_m2, test = "pd")
+```
+
+
+### M2 + Autocorrelation by Model (M3)
+
+```{r}
+#| label: moderator-autocorrelation
+# mean lag-1 autocorrelation of the items in the training window, split like training length
+autocorrelation <- features$person |>
+  dplyr::mutate(rho1 = rho1_train_mean) |>
+  split_between_within(rho1, dataset_id) |>
+  dplyr::select(dataset_id, id, rho1_between, rho1_within)
+
+# rho1 is undefined for persons without observed lag pairs in the training window
+df_m3 <- df_rel |>
+  dplyr::left_join(autocorrelation, by = c("dataset_id", "id")) |>
+  dplyr::filter(!is.na(rho1_within))
+```
+
+```{r}
+#| label: meta-relmse-m3
+model_path <- here::here("output", "analysis", "fit_relmse_m3.rds")
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_m3 <- brm(
+    bf(log(rel_mse) ~ 0 + model + model:log_n_between + model:log_n_within +
+         model:rho1_between + model:rho1_within +
+         (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
+       sigma ~ 0 + model),
+    data = df_m3,
+    family = student(),
+    prior = priors_t,
+    chains = 4,
+    cores = 4,
+    iter = 3000,
+    warmup = 1000,
+    seed = seed
+  )
+
+  saveRDS(fit_relmse_m3, model_path)
+} else {
+  fit_relmse_m3 <- read_fit(model_path, "student")
+}
+```
+
+```{r}
+#| label: prior-predictive-m3
+model_path <- here::here("output", "analysis", "fit_relmse_m3_prior.rds")
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_m3_prior <- update(fit_relmse_m3, sample_prior = "only", seed = seed)
+  saveRDS(fit_relmse_m3_prior, model_path)
+} else {
+  fit_relmse_m3_prior <- read_fit(model_path, "student")
+}
+
+bayesplot::pp_check(fit_relmse_m3_prior, type = "dens_overlay", ndraws = 50)
+```
+
+```{r}
+#| label: summary-relmse-m3
+parameters::model_parameters(fit_relmse_m3, test = "pd")
+```
+
+# Sensitivity Analyses
+
+## Log-Normal Likelihood (S1)
+
+```{r}
+#| label: meta-relmse-s1
+model_path <- here::here("output", "analysis", "fit_relmse_s1.rds")
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_s1 <- brm(
+    bf(rel_mse ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
+       sigma ~ 0 + model),
+    data = df_rel,
+    family = lognormal(),
+    prior = priors_rel,
+    chains = 4,
+    cores = 4,
+    iter = 3000,
+    warmup = 1000,
+    seed = seed
+  )
+
+  saveRDS(fit_relmse_s1, model_path)
+} else {
+  fit_relmse_s1 <- read_fit(model_path, "lognormal")
+}
+```
+
+```{r}
+#| label: prior-predictive-s1
+model_path <- here::here("output", "analysis", "fit_relmse_s1_prior.rds")
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_s1_prior <- update(fit_relmse_s1, sample_prior = "only", seed = seed)
+  saveRDS(fit_relmse_s1_prior, model_path)
+} else {
+  fit_relmse_s1_prior <- read_fit(model_path, "lognormal")
+}
+
+bayesplot::pp_check(fit_relmse_s1_prior, type = "dens_overlay", ndraws = 50) +
+  ggplot2::scale_x_log10()
+```
+
+```{r}
+#| label: summary-relmse-s1
+parameters::model_parameters(fit_relmse_s1, test = "pd")
+```
+
+## Raw-Scale MSE (S4)
+
+```{r}
+#| label: meta-relmse-s4
+model_path <- here::here("output", "analysis", "fit_relmse_s4.rds")
+
+# all models including the mean model, so the reference is modelled instead of divided out
+df_raw <- df_meta |>
+  dplyr::filter(set == "oos", is.finite(gm_mse), gm_mse > 0)
+
+# raw MSE on the [0, 1] scale is around exp(-3), not 1
+priors_raw <- c(
+  prior(normal(-3, 2), class = b),
+  prior(exponential(2), class = sd),
+  prior(normal(-1, 1), class = b, dpar = sigma),
+  prior(gamma(2, 0.1), class = nu)
+)
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_s4 <- brm(
+    bf(log(gm_mse) ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
+       sigma ~ 0 + model),
+    data = df_raw,
+    family = student(),
+    prior = priors_raw,
+    chains = 4,
+    cores = 4,
+    iter = 3000,
+    warmup = 1000,
+    seed = seed
+  )
+
+  saveRDS(fit_relmse_s4, model_path)
+} else {
+  fit_relmse_s4 <- read_fit(model_path, "student")
+}
+```
+
+```{r}
+#| label: prior-predictive-s4
+model_path <- here::here("output", "analysis", "fit_relmse_s4_prior.rds")
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_s4_prior <- update(fit_relmse_s4, sample_prior = "only", seed = seed)
+  saveRDS(fit_relmse_s4_prior, model_path)
+} else {
+  fit_relmse_s4_prior <- read_fit(model_path, "student")
+}
+
+# the response is already log(gm_mse), so no log axis
+bayesplot::pp_check(fit_relmse_s4_prior, type = "dens_overlay", ndraws = 50)
+```
+
+```{r}
+#| label: summary-relmse-s4
+parameters::model_parameters(fit_relmse_s4, test = "pd")
+```
+
+# Convergence Diagnostics
+
+```{r}
+#| label: convergence
+# population-level and variance parameters only. the person-level effects are too many to list
+convergence <- function(fit) {
+  draws <- brms::as_draws_df(fit, variable = "^(b_|sd_|nu$)", regex = TRUE)
+  summary <- posterior::summarise_draws(draws, "rhat", "ess_bulk", "ess_tail")
+  nuts <- brms::nuts_params(fit)
+  tibble::tibble(
+    max_rhat = max(summary$rhat),
+    min_ess_bulk = min(summary$ess_bulk),
+    min_ess_tail = min(summary$ess_tail),
+    divergences = sum(nuts$Value[nuts$Parameter == "divergent__"])
+  )
+}
+
+list(M1 = fit_relmse_m1, M2 = fit_relmse_m2, M3 = fit_relmse_m3,
+     S1 = fit_relmse_s1, S4 = fit_relmse_s4) |>
+  lapply(convergence) |>
+  dplyr::bind_rows(.id = "model") |>
+  pander::pander(digits = 3, caption = "Convergence diagnostics per fitted model.")
+```
+
+# Session Info
+
+```{r}
+#| label: session-info
+pander::pander(sessionInfo())
+```
+

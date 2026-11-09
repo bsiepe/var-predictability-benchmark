@@ -22,11 +22,158 @@ execute:
   message: false
   warning: false
   eval: true
+knitr:
+  opts_chunk:
+    # theme_bs() renders text with showtext, which needs the figure dpi to size text correctly
+    fig.showtext: true
 ---
 
-<!--
-Read-only report. Describes the dataset collection: counts, design features
-(beeps/day, study length, n persons, n variables), missingness. 
-Reads from data/meta/ and data/interim/.
-Does NOT fit models.
--->
+
+
+# Preparation
+
+This is the summary script for all basic descriptives of our project prior to the main analyses. 
+
+```{r}
+#| include: false
+library(here)
+library(dplyr)
+library(ggplot2)
+library(purrr)
+
+source(here("scripts", "00_plotting_functions.R"))
+
+# same filter and id padding as the Makefile
+registry <- readr::read_tsv(here("data", "meta", "datasets.tsv"),
+                            col_types = readr::cols(dataset_id = readr::col_character()),
+                            show_col_types = FALSE) |>
+  filter(include %in% c("yes", "modify")) |>
+  mutate(dataset_id = sprintf("%04d", as.integer(dataset_id)),
+         label = paste0(first_author, " (", year, ")"))
+
+features <- readRDS(here("output", "analysis", "features.rds"))
+
+scale_bounds <- registry$dataset_id |>
+  set_names() |>
+  map(\(id) readRDS(here("data", "interim", paste0(id, ".rds")))$scale_bounds) |>
+  bind_rows(.id = "dataset_id")
+
+# item text is only kept in the raw openESM metadata, not in the interim files
+item_text <- registry$dataset_id |>
+  set_names() |>
+  map(\(id) readRDS(here("data", "raw", paste0(id, ".rds")))$metadata$features[[1]] |>
+        select(name, description, details)) |>
+  bind_rows(.id = "dataset_id")
+
+stopifnot(setequal(unique(scale_bounds$dataset_id), registry$dataset_id),
+          setequal(unique(features$person$dataset_id), registry$dataset_id))
+```
+
+# Study design
+
+```{r}
+#| label: tbl-design
+#| tbl-cap: "Study design per dataset."
+
+registry |>
+  arrange(first_author, year) |>
+  select(label, n_days, n_beeps_per_day, n_time_points, sampling_scheme, lag_mode, topics) |>
+  knitr::kable(col.names = c("Dataset", "Days", "Beeps per day", "Planned time points",
+                             "Sampling scheme", "Lag mode", "Topics"))
+```
+
+# Items
+
+We summarise the items per dataset. The mean and share at the bounds refer to the rescaled items. Items allowed outside their bounds can lie outside [0, 1], so their share at the bounds is not applicable (NA). SD and lag-1 autocorrelation (first training window) are medians over persons. Missing is the share of recorded rows without a response; beeps absent from the data (implicit missingness) are not counted, so this is a lower bound.
+
+```{r}
+#| label: tbl-items
+#| tbl-cap: "Items per dataset. Mean and share at the bounds refer to the rescaled items. Items allowed outside their bounds can lie outside [0, 1], so their share at the bounds is not applicable (NA). SD and lag-1 autocorrelation (first training window) are medians over persons. Missing is the share of recorded rows without a response; beeps absent from the data (implicit missingness) are not counted, so this is a lower bound."
+
+item_person <- features$item |>
+  summarise(sd_median = median(sd_obs, na.rm = TRUE),
+            rho1_median = median(rho1_train, na.rm = TRUE),
+            prop_bound_mean = mean(prop_bound, na.rm = TRUE),
+            .by = c(dataset_id, variable))
+
+item_series <- features$series |>
+  summarise(mean_rescaled = mean(y, na.rm = TRUE),
+            pct_missing_recorded = 100 * mean(is.na(y)),
+            .by = c(dataset_id, variable))
+
+items <- scale_bounds |>
+  rename(variable = name) |>
+  inner_join(item_person, by = c("dataset_id", "variable")) |>
+  inner_join(item_series, by = c("dataset_id", "variable")) |>
+  left_join(mutate(item_text, in_metadata = TRUE), by = c("dataset_id", "variable" = "name")) |>
+  mutate(prop_bound_mean = if_else(allow_outside, NA_real_, prop_bound_mean),
+         composite = is.na(in_metadata),
+         description = if_else(composite, "Composite (see modifier)", description))
+
+stopifnot(nrow(items) == nrow(scale_bounds),
+          nrow(items) == nrow(item_person),
+          nrow(items) == nrow(item_series))
+
+# composites are only added by modifiers, so items without metadata must come from such datasets
+stopifnot(all(items$dataset_id[items$composite] %in%
+                registry$dataset_id[registry$include == "modify"]))
+
+items |>
+  left_join(select(registry, dataset_id, label, first_author, year), by = "dataset_id") |>
+  arrange(first_author, year) |>
+  # a line break inside a cell ends the markdown table
+  mutate(allow_outside = if_else(allow_outside, "yes", "no"),
+         across(c(description, details), \(x) trimws(gsub("\\s*[\r\n]+\\s*", " ", x)))) |>
+  select(label, variable, description, details, scale_min, scale_max, source, allow_outside,
+         mean_rescaled, sd_median, rho1_median, prop_bound_mean, pct_missing_recorded) |>
+  knitr::kable(digits = 2,
+               col.names = c("Dataset", "Item", "Description", "Details", "Scale min",
+                             "Scale max", "Bounds", "Outside allowed", "Mean", "SD, median",
+                             "Lag-1 autocorr., median", "Share at bounds",
+                             "% missing (recorded rows)"))
+```
+
+# Series length
+
+Next, we plot the number of valid observations per person, by dataset. Valid observations are timepoints with complete responses and a usable lag, not all recorded rows. The point shows the median; thick and thin lines show the central 50% and 90% of persons.
+
+```{r}
+#| label: fig-series-length
+#| fig-cap: "Valid observations per person, by dataset. Valid observations are timepoints with complete responses and a usable lag, not all recorded rows. Point: median; thick and thin lines: central 50% and 90% of persons."
+#| fig-height: 7
+
+series_length <- features$person |>
+  left_join(select(registry, dataset_id, label), by = "dataset_id") |>
+  mutate(label = reorder(label, n_valid, FUN = median))
+
+stopifnot(!anyNA(series_length$label))
+
+ggplot(series_length, aes(x = n_valid, y = label)) +
+  ggdist::stat_halfeye(normalize = "groups", scale = 0.6, .width = c(0.5, 0.9),
+                       fill = "#2C3E50", slab_alpha = 0.7, point_size = 2.5, colour = "#2C3E50") +
+  labs(x = "Valid observations per person", y = NULL) +
+  theme_bs()
+```
+
+# Missingness
+
+```{r}
+#| label: fig-missingness
+#| fig-cap: "Share of missing item responses per person, by dataset, pooled over items and recorded rows. Beeps absent from the data (implicit missingness) are not counted, so this is a lower bound. Point: median; thick and thin lines: central 50% and 90% of persons."
+#| fig-height: 7
+
+missingness <- features$series |>
+  summarise(pct_missing_recorded = 100 * mean(is.na(y)), .by = c(dataset_id, id)) |>
+  left_join(select(registry, dataset_id, label), by = "dataset_id") |>
+  mutate(label = reorder(label, pct_missing_recorded, FUN = median))
+
+stopifnot(!anyNA(missingness$label))
+
+ggplot(missingness, aes(x = pct_missing_recorded, y = label)) +
+  ggdist::stat_halfeye(density = "bounded", normalize = "groups", scale = 0.6,
+                       .width = c(0.5, 0.9), fill = "#2C3E50", slab_alpha = 0.7,
+                       point_size = 2.5, colour = "#2C3E50") +
+  labs(x = "Missing item responses per person (% of recorded rows)", y = NULL) +
+  theme_bs()
+```
+

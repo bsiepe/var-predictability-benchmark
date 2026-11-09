@@ -391,6 +391,10 @@ ggplot(dat_rel, aes(x = model, y = rel_mse)) +
   coord_cartesian(ylim = rel_lim) +
   labs(x = NULL, y = "OOS MSE relative to the mean model (log scale)") +
   theme_bs()
+
+# save this figure for the paper
+ggsave("fig_rel_mse_overall.pdf", width = 10, height = 6, dpi = 300,
+path = here("figures"))
 ```
 
 ## In-sample vs. out-of-sample RMSE
@@ -486,16 +490,39 @@ dominance <- model_pairs |>
     model_b = factor(model_b, levels = rev(model_labels))
   )
 
+dominance_text_size <- 14 * 0.9
+
 ggplot(dominance, aes(x = model_a, y = model_b, fill = prop)) +
   geom_tile() +
-  geom_text(aes(label = round(prop, 2)), size = 3.5, colour = "grey10") +
+  geom_text(aes(label = round(prop, 2)), size = dominance_text_size / ggplot2::.pt,
+            colour = "grey30", family = "news") +
   scale_fill_distiller(palette = "RdBu", limits = c(0, 1), direction = 1,
                        na.value = "grey95",
                        name = "P(column model better)") +
   labs(x = NULL, y = NULL) +
   scale_x_discrete(position = "top") +
   theme_bs() +
-  theme(legend.position = "right")
+  guides(fill = guide_colorbar(
+    barwidth = grid::unit(8, "cm"),
+    title.position = "left"
+  )) +
+  theme(
+    legend.position = "bottom",
+    legend.justification = "center",
+    legend.title = element_text(
+      family = "news", size = dominance_text_size, colour = "grey30",
+      margin = margin(r = 16)
+    ),
+    legend.text = element_text(
+      family = "news", size = dominance_text_size, colour = "grey30",
+      margin = margin(t = 4)
+    )
+  )
+
+# save figure for paper
+ggsave("fig_model_dominance.pdf", width = 8, height = 5.5, dpi = 300,
+       path = here("figures")) 
+
 ```
 
 ## Decomposition of predictive gains
@@ -589,7 +616,7 @@ ggplot(plot_decomp, aes(y = label, colour = component)) +
 
 ```{r}
 #| label: fig-shrinkage
-#| fig-cap: "Person-level OOS MSE relative to the mean model: person-specific vs. multilevel model, coloured by training series length. Points below the diagonal: pooling lowered the error. Points outside the range are drawn at its edge."
+#| fig-cap: "Person-level OOS MSE relative to the mean model: person-specific vs. multilevel model, coloured by training series length. Points below the diagonal: pooling lowered the error."
 #| fig-height: 5
 #| fig-width: 10
 
@@ -605,13 +632,16 @@ shrinkage <- combined |>
                              labels = c("AR vs. mlAR", "VAR vs. mlVAR"))) |>
   filter(is.finite(person_specific), is.finite(multilevel)) |>
   left_join(select(features$person, dataset_id, id, n_train_first), by = c("dataset_id", "id")) |>
-  # points outside the plotting range are drawn at its edge
-  mutate(x_plot = pmin(pmax(person_specific, xy_lim[1]), xy_lim[2]),
-         y_plot = pmin(pmax(multilevel, xy_lim[1]), xy_lim[2])) |>
   # short series last, so they are drawn on top
   arrange(desc(n_train_first))
 
 stopifnot(!anyNA(shrinkage$n_train_first))
+
+beyond_shrinkage <- shrinkage |>
+  summarise(n_outside = sum(person_specific < xy_lim[1] | person_specific > xy_lim[2] |
+                             multilevel < xy_lim[1] | multilevel > xy_lim[2]),
+            .by = comparison) |>
+  mutate(label = sprintf("%d outside plotted range", n_outside))
 
 # arrows from the diagonal into the region where each model has the lower error
 better_arrows <- tibble(
@@ -621,7 +651,7 @@ better_arrows <- tibble(
   hjust = c(0, 1), vjust = c(1, 0)
 )
 
-ggplot(shrinkage, aes(x = x_plot, y = y_plot, colour = n_train_first)) +
+ggplot(shrinkage, aes(x = person_specific, y = multilevel, colour = n_train_first)) +
   geom_hline(yintercept = 1, colour = "grey85", linewidth = 0.3) +
   geom_vline(xintercept = 1, colour = "grey85", linewidth = 0.3) +
   geom_abline(slope = 1, intercept = 0, colour = "grey50", linetype = "dashed") +
@@ -632,6 +662,8 @@ ggplot(shrinkage, aes(x = x_plot, y = y_plot, colour = n_train_first)) +
   geom_text(data = better_arrows,
             aes(x = xend, y = yend, label = label, hjust = hjust, vjust = vjust),
             size = 3.5, colour = "grey20", lineheight = 0.9, inherit.aes = FALSE) +
+  geom_text(data = beyond_shrinkage, aes(x = xy_lim[1], y = xy_lim[2], label = label),
+            inherit.aes = FALSE, hjust = 0, vjust = 1.5, size = 3, colour = "grey30") +
   scale_x_log10(breaks = c(0.25, 0.5, 1, 2, 4)) +
   scale_y_log10(breaks = c(0.25, 0.5, 1, 2, 4)) +
   scale_colour_viridis_c(transform = "log10", name = "Training length\n(first fold)") +
@@ -942,5 +974,4 @@ ggplot(preds, aes(x = .epred, y = reorder(dataset_label, .epred),
            colour = "grey90", linewidth = 0.3) +
   guides(colour = guide_legend(nrow = 1, byrow = TRUE))
 ```
-
 

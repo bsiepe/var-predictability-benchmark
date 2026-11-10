@@ -28,11 +28,6 @@ knitr:
     fig.showtext: true
 ---
 
-<!--
-Read-only report. Reads cached results from output/ and never refits.
-Primary outcome: OOS MSE relative to the rolling mean model, geometric mean over items.
-Absolute RMSE on [0,1]-rescaled items is reported descriptively. Figures written to figures/.
--->
 
 # Preparation
 
@@ -82,7 +77,7 @@ ratio_breaks <- c(0.5, 0.67, 0.8, 1, 1.25, 1.5, 2)
 
 ## Sample overview
 
-`n_total_person` counts rows present in the raw data and may underestimate the true number of scheduled beeps if absent responses were never recorded (implicit missingness). It is used as a proxy for series length, not as a compliance measure.
+`n_total_person` counts the number of scheduled beeps per person, in case information about the number of scheduled beeps is available. Only beeps from a person's first to last recorded day are counted, as scheduled days outside this span are unknown, so it may still underestimate the full schedule. It is used as a proxy for series length, not as a compliance measure.
 
 ```{r}
 #| label: tbl-sample
@@ -775,6 +770,10 @@ ggplot(cross_dyn, aes(x = obs_per_var_eq_par, y = ratio)) +
   labs(x = "Training observations per VAR coefficient (first fold, log scale)",
        y = "OOS MSE ratio (log scale, < 1 = model after the arrow better)") +
   theme_bs()
+
+# save figure for paper
+ggsave("fig_cross_dynamics.pdf", width = 9, height = 8, dpi = 300,
+       path = here("figures"))
 ```
 
 ## Time series gallery

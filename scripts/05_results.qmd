@@ -100,6 +100,111 @@ dataset_meta |>
                              "Valid obs. per person, median [range]", "Rows per person, median"))
 ```
 
+## Dataset table for the paper
+
+```{r}
+#| label: tbl-datasets
+#| tbl-cap: "Dataset overview. Persons: included (excluded). Valid observations are timepoints with complete responses and a usable lag, median [IQR] per person."
+
+# sample and table_note are filled in by hand in the coding sheet
+# sample falls back to the # openESM participants description while blank
+registry <- readr::read_tsv(here("data", "meta", "datasets.tsv"),
+                            col_types = readr::cols(dataset_id = readr::col_character()),
+                            show_col_types = FALSE) |>
+  mutate(dataset_id = sprintf("%04d", as.integer(dataset_id)))
+for (col in c("sample", "table_note")) {
+  if (!col %in% names(registry)) registry[[col]] <- NA_character_
+}
+# an empty column is read as logical
+registry <- mutate(registry, across(c(sample, table_note, participants), as.character))
+# written by scripts/export_references.R
+citation_keys <- readr::read_tsv(here("output", "paper", "dataset_citation_keys.tsv"),
+                                 col_types = "cc")
+
+valid_obs <- combined |>
+  distinct(dataset_id, id, n_valid_person) |>
+  summarise(valid = sprintf("%g [%g, %g]", median(n_valid_person),
+                            quantile(n_valid_person, 0.25), quantile(n_valid_person, 0.75)),
+            .by = dataset_id)
+
+datasets_tbl <- dataset_meta |>
+  select(dataset_id, first_author, year, n_persons_kept, n_persons_excluded, n_items) |>
+  left_join(select(registry, dataset_id, sample, participants, n_days, n_beeps_per_day, table_note),
+            by = "dataset_id") |>
+  left_join(citation_keys, by = "dataset_id") |>
+  left_join(valid_obs, by = "dataset_id") |>
+  arrange(first_author, year) |>
+  mutate(label = paste0(first_author, " (", year, ")"),
+         sample = coalesce(sample, participants, ""),
+         table_note = na_if(trimws(table_note), ""),
+         persons = sprintf("%s (%s)", n_persons_kept, n_persons_excluded),
+         across(c(n_days, n_beeps_per_day), \(x) coalesce(as.character(x), "?")))
+
+# datasets with the same note share a footnote letter
+notes <- datasets_tbl |>
+  filter(!is.na(table_note)) |>
+  distinct(table_note) |>
+  mutate(marker = letters[seq_len(n())])
+datasets_tbl <- left_join(datasets_tbl, notes, by = "table_note")
+
+datasets_tbl |>
+  mutate(design = paste(n_days, "×", n_beeps_per_day),
+         table_note = coalesce(table_note, "")) |>
+  select(label, sample, design, persons, n_items, valid, table_note) |>
+  knitr::kable(col.names = c("Dataset", "Sample", "Days × beeps per day", "Persons", "Items",
+                             "Valid obs. per person", "Note"))
+```
+
+```{r}
+#| label: tbl-datasets-latex
+# the paper version: a landscape table across pages with citations, footnote markers and the
+# notes below. needs \usepackage{pdflscape, xltabular, booktabs}
+escape_latex <- function(x) gsub("([&%$#_{}])", "\\\\\\1", x)
+
+latex_rows <- datasets_tbl |>
+  mutate(dataset = paste0(if_else(is.na(keys), label, paste0("\\textcite{", keys, "}")),
+                          if_else(is.na(marker), "", paste0("\\textsuperscript{", marker, "}"))),
+         design = paste(n_days, "$\\times$", n_beeps_per_day),
+         sample = escape_latex(sample)) |>
+  select(dataset, sample, design, persons, n_items, valid)
+# paste0 would turn zero notes into one empty marker
+latex_notes <- if (nrow(notes) > 0) {
+  paste0("\\textsuperscript{", notes$marker, "}", escape_latex(notes$table_note), collapse = " ")
+} else {
+  ""
+}
+
+# sample is an X column, so it wraps instead of running off the page.
+# the header repeats on every page
+header <- c("\\toprule",
+            "Dataset & Sample & Design & Persons & Items & Valid obs. \\\\",
+            "\\midrule")
+latex_table <- c(
+  "\\begin{landscape}",
+  "\\small",
+  "\\renewcommand{\\arraystretch}{1.2}",
+  paste0("\\begin{xltabular}{\\linewidth}{@{}>{\\raggedright\\arraybackslash}p{7.5cm} ",
+         ">{\\raggedright\\arraybackslash}X l r r l@{}}"),
+  "\\caption{Overview of Datasets}",
+  "\\label{tab:datasets} \\\\",
+  header,
+  "\\endfirsthead",
+  header,
+  "\\endhead",
+  "\\bottomrule",
+  "\\endfoot",
+  paste(do.call(paste, c(latex_rows, sep = " & ")), "\\\\"),
+  "\\end{xltabular}",
+  "",
+  paste("\\noindent \\textit{Note.} Persons: included (excluded).",
+        "Design: days $\\times$ beeps per day.",
+        "Valid obs.: timepoints with complete responses and a usable lag, median [IQR] per person.",
+        latex_notes),
+  "\\end{landscape}"
+)
+writeLines(latex_table, here("output", "paper", "tbl_datasets.tex"))
+```
+
 Overall dataset and person counts, before and after exclusions.
 ```{r}
 #| label: sample-totals

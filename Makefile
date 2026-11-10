@@ -32,6 +32,7 @@ DATASET_IDS  := $(shell $(RSCRIPT) --vanilla -e \
 INTERIM      := $(patsubst %,data/interim/%.rds,$(DATASET_IDS))
 RESULTS      := $(patsubst %,output/results/%.rds,$(DATASET_IDS))
 FEATURES     := output/analysis/features.rds
+REFERENCES   := output/paper/dataset_references.bib output/paper/dataset_citation_keys.tsv
 # outputs of 03_collect_results.R that downstream steps read
 COLLECTED    := output/meta/combined.rds output/analysis/lasso_mean.rds
 META_MODELS  := output/analysis/fit_relmse_m1.rds \
@@ -76,7 +77,11 @@ $(FEATURES): $(INTERIM) $(RESULTS) scripts/03b_features.R scripts/engine/feature
 
 features: $(FEATURES)
 
-reports: meta features $(COLLECTED)
+# the interim files guarantee that the raw downloads exist
+$(REFERENCES) &: $(INTERIM) scripts/export_references.R
+	$(RSCRIPT) scripts/export_references.R
+
+reports: meta features $(COLLECTED) $(REFERENCES)
 	quarto render scripts/05_results.qmd
 	quarto render scripts/01_descriptives.qmd
 

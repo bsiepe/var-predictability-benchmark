@@ -33,6 +33,54 @@ impute_for_lag <- function(mat, method, max_consec) {
   list(mat = mat, n_imputed = sum(is.na(mat_orig) & !is.na(mat)))
 }
 
+# expand each person to the full day x beep schedule, so that beeps absent from the data
+# become NA rows. beeps_per_day = NA uses the observed beep range; daily = TRUE completes days only
+complete_grid <- function(df, beeps_per_day, daily, dataset_id = NA_character_) {
+  keys <- if (daily) "day" else c("day", "beep")
+
+  na_count <- vapply(keys, function(k) sum(is.na(df[[k]])), integer(1))
+  partly_na <- na_count > 0 & na_count < nrow(df)
+  if (any(partly_na))
+    stop("dataset ", dataset_id, ": rows with NA ", paste(keys[partly_na], collapse = " and "),
+         " cannot be placed on the schedule")
+  # a timing column without any values leaves no schedule to complete
+  if (any(na_count == nrow(df))) return(df)
+
+  for (k in keys) {
+    if (!is.numeric(df[[k]]) || any(df[[k]] != round(df[[k]])))
+      stop("dataset ", dataset_id, ": ", k, " must be integer-valued")
+  }
+  if (anyDuplicated(df[c("id", keys)]))
+    stop("dataset ", dataset_id, ": duplicate ", paste(keys, collapse = " x "), " within person")
+
+  beeps <- NULL
+  if (!daily) {
+    first_beep <- min(df$beep)
+    last_beep <- max(df$beep)
+    n_observed <- last_beep - first_beep + 1
+    if (is.na(beeps_per_day)) beeps_per_day <- n_observed
+    if (n_observed > beeps_per_day)
+      stop("dataset ", dataset_id, ": observed beeps ", first_beep, " to ", last_beep,
+           " exceed beeps_per_day = ", beeps_per_day)
+    if (n_observed < beeps_per_day)
+      warning("dataset ", dataset_id, ": observed beeps ", first_beep, " to ", last_beep,
+              " span fewer than beeps_per_day = ", beeps_per_day)
+    beeps <- seq(first_beep, length.out = beeps_per_day)
+  }
+
+  complete_person <- function(df_p) {
+    days <- seq(min(df_p$day), max(df_p$day))
+    schedule <- if (daily) data.frame(day = days) else expand.grid(day = days, beep = beeps)
+    schedule$id <- df_p$id[1]
+    out <- merge(schedule, df_p, by = c("id", keys), all.x = TRUE)
+    out[order(out$day, out$beep), names(df_p)]
+  }
+
+  out <- do.call(rbind, lapply(split(df, df$id, drop = TRUE), complete_person))
+  rownames(out) <- NULL
+  out
+}
+
 # Building a person modeldata object from a single person's dataframe
 build_person <- function(df_p, items, scale_bounds, pp) {
   # this function assumes that df_p is already ordered correctly per person
@@ -67,12 +115,16 @@ build_person <- function(df_p, items, scale_bounds, pp) {
 
   # impute Y for lag construction only; response Y stays original
   n_imputed <- 0L
+  Y_for_lag <- Y
   if (pp$missing$method == "locf_lag") {
-    result <- impute_for_lag(Y, pp$missing$method, pp$missing$max_consec)
-    Y_for_lag <- result$mat
-    n_imputed <- result$n_imputed
-  } else {
-    Y_for_lag <- Y
+    # carry values forward within a day only, unless lags may cross nights
+    starts_new_day <- is.na(same_day) | !same_day
+    day_block <- if (isTRUE(pp$lag_across_night)) rep(1L, Tn) else cumsum(starts_new_day)
+    for (rows in split(seq_len(Tn), day_block)) {
+      result <- impute_for_lag(Y[rows, , drop = FALSE], pp$missing$method, pp$missing$max_consec)
+      Y_for_lag[rows, ] <- result$mat
+      n_imputed <- n_imputed + result$n_imputed
+    }
   }
 
   Ylag <- matrix(NA_real_, nrow = Tn, ncol = ncol(Y), dimnames = dimnames(Y))
@@ -108,6 +160,8 @@ preprocess_dataset <- function(df, features, cfg, dataset_id = NA_character_) {
     stop("df missing required columns: ", paste(setdiff(c("id", "beep", "day"), names(df)), collapse = ", "))
   if (!all(items %in% names(df)))
     stop("df missing item columns: ", paste(setdiff(items, names(df)), collapse = ", "))
+  if (isTRUE(pp$complete_grid))
+    df <- complete_grid(df, pp$beeps_per_day %||% NA, isTRUE(pp$use_consec_day), dataset_id)
 
   declared <- rep(FALSE, length(items))
   decl_min <- rep(NA_real_, length(items))

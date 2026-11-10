@@ -8,7 +8,10 @@ cfg <- list(
   # min_resid_df: residual df left after slopes and intercept; lambda_min_ratio: smallest lambda as a
   # share of the largest, 0.05 as graphicalVAR's lambda_min_beta
   lasso_var.spec = list(ebic_gamma = 0, penalize_ar = TRUE, min_resid_df = 1, lambda_min_ratio = 0.05),
-  ml_var.spec = list(re_corr = TRUE),   # re_corr = FALSE → uncorrelated (||) for robustness
+  # center_lag: "person" centres the lags of ml_ar / ml_var on the person's training-window mean,
+  # "none" leaves them raw; between = TRUE adds those means as person-level predictors (as mlVAR)
+  ml_ar.spec = list(center_lag = "person", between = FALSE),
+  ml_var.spec = list(re_corr = TRUE, center_lag = "person", between = FALSE),   # re_corr = FALSE → uncorrelated (||) for robustness
   ml_var.max_p = 12,  # if p > this, fall back to uncorrelated RE (re_corr = FALSE)
 
   preprocess = list(
@@ -17,6 +20,8 @@ cfg <- list(
     lag_across_night = FALSE,
     lag_across_gaps = FALSE,
     use_consec_day = FALSE,   # if TRUE, gap check uses diff(day)==1 instead of consec beep (daily diaries)
+    complete_grid = TRUE, # add NA rows for scheduled beeps absent from the data
+    beeps_per_day = NA, # set per dataset from the coding sheet by preprocess_one.R; NA = observed range
     missing = list(method = "locf_lag", max_consec = 2), # "locf_lag": LOCF impute for lag construction only
     min_obs_person = 20
   ),
@@ -26,10 +31,5 @@ cfg <- list(
     test_window = 10,
     warmup = 10,
     refit_per_origin = TRUE
-  ),
-
-  metrics = list(
-    primary = "stdRMSE",
-    secondary = "R2"
   )
 )

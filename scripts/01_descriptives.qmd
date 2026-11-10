@@ -84,11 +84,11 @@ registry |>
 
 # Items
 
-We summarise the items per dataset. The mean and share at the bounds refer to the rescaled items. Items allowed outside their bounds can lie outside [0, 1], so their share at the bounds is not applicable (NA). SD and lag-1 autocorrelation (first training window) are medians over persons. Missing is the share of recorded rows without a response; beeps absent from the data (implicit missingness) are not counted, so this is a lower bound.
+We summarise the items per dataset. The mean and share at the bounds refer to the rescaled items. Items allowed outside their bounds can lie outside [0, 1], so their share at the bounds is not applicable (NA). SD and lag-1 autocorrelation (first training window) are medians over persons. Missing is the share of scheduled beeps without a response, from a person's first to last recorded day, including beeps absent from the raw data. Scheduled days outside this span are unknown, so this may still underestimate missingness. For datasets without day or beep information, only recorded rows are counted.
 
 ```{r}
 #| label: tbl-items
-#| tbl-cap: "Items per dataset. Mean and share at the bounds refer to the rescaled items. Items allowed outside their bounds can lie outside [0, 1], so their share at the bounds is not applicable (NA). SD and lag-1 autocorrelation (first training window) are medians over persons. Missing is the share of recorded rows without a response; beeps absent from the data (implicit missingness) are not counted, so this is a lower bound."
+#| tbl-cap: "Items per dataset. Mean and share at the bounds refer to the rescaled items. Items allowed outside their bounds can lie outside [0, 1], so their share at the bounds is not applicable (NA). SD and lag-1 autocorrelation (first training window) are medians over persons. Missing is the share of scheduled beeps without a response, from a person's first to last recorded day, including beeps absent from the raw data. Scheduled days outside this span are unknown, so this may still underestimate missingness. For datasets without day or beep information, only recorded rows are counted."
 
 item_person <- features$item |>
   summarise(sd_median = median(sd_obs, na.rm = TRUE),
@@ -98,7 +98,7 @@ item_person <- features$item |>
 
 item_series <- features$series |>
   summarise(mean_rescaled = mean(y, na.rm = TRUE),
-            pct_missing_recorded = 100 * mean(is.na(y)),
+            pct_missing = 100 * mean(is.na(y)),
             .by = c(dataset_id, variable))
 
 items <- scale_bounds |>
@@ -125,21 +125,21 @@ items |>
   mutate(allow_outside = if_else(allow_outside, "yes", "no"),
          across(c(description, details), \(x) trimws(gsub("\\s*[\r\n]+\\s*", " ", x)))) |>
   select(label, variable, description, details, scale_min, scale_max, source, allow_outside,
-         mean_rescaled, sd_median, rho1_median, prop_bound_mean, pct_missing_recorded) |>
+         mean_rescaled, sd_median, rho1_median, prop_bound_mean, pct_missing) |>
   knitr::kable(digits = 2,
                col.names = c("Dataset", "Item", "Description", "Details", "Scale min",
                              "Scale max", "Bounds", "Outside allowed", "Mean", "SD, median",
                              "Lag-1 autocorr., median", "Share at bounds",
-                             "% missing (recorded rows)"))
+                             "% missing"))
 ```
 
 # Series length
 
-Next, we plot the number of valid observations per person, by dataset. Valid observations are timepoints with complete responses and a usable lag, not all recorded rows. The point shows the median; thick and thin lines show the central 50% and 90% of persons.
+Next, we plot the number of valid observations per person, by dataset. Valid observations are timepoints with complete responses and a usable lag, not all scheduled beeps. The point shows the median; thick and thin lines show the central 50% and 90% of persons.
 
 ```{r}
 #| label: fig-series-length
-#| fig-cap: "Valid observations per person, by dataset. Valid observations are timepoints with complete responses and a usable lag, not all recorded rows. Point: median; thick and thin lines: central 50% and 90% of persons."
+#| fig-cap: "Valid observations per person, by dataset. Valid observations are timepoints with complete responses and a usable lag, not all scheduled beeps. Point: median; thick and thin lines: central 50% and 90% of persons."
 #| fig-height: 7
 
 series_length <- features$person |>
@@ -159,21 +159,21 @@ ggplot(series_length, aes(x = n_valid, y = label)) +
 
 ```{r}
 #| label: fig-missingness
-#| fig-cap: "Share of missing item responses per person, by dataset, pooled over items and recorded rows. Beeps absent from the data (implicit missingness) are not counted, so this is a lower bound. Point: median; thick and thin lines: central 50% and 90% of persons."
+#| fig-cap: "Share of missing item responses per person, by dataset, pooled over items and scheduled beeps from the person's first to last recorded day, including beeps absent from the raw data. Scheduled days outside this span are unknown, so this may still underestimate missingness. Point: median; thick and thin lines: central 50% and 90% of persons."
 #| fig-height: 7
 
 missingness <- features$series |>
-  summarise(pct_missing_recorded = 100 * mean(is.na(y)), .by = c(dataset_id, id)) |>
+  summarise(pct_missing = 100 * mean(is.na(y)), .by = c(dataset_id, id)) |>
   left_join(select(registry, dataset_id, label), by = "dataset_id") |>
-  mutate(label = reorder(label, pct_missing_recorded, FUN = median))
+  mutate(label = reorder(label, pct_missing, FUN = median))
 
 stopifnot(!anyNA(missingness$label))
 
-ggplot(missingness, aes(x = pct_missing_recorded, y = label)) +
+ggplot(missingness, aes(x = pct_missing, y = label)) +
   ggdist::stat_halfeye(density = "bounded", normalize = "groups", scale = 0.6,
                        .width = c(0.5, 0.9), fill = "#2C3E50", slab_alpha = 0.7,
                        point_size = 2.5, colour = "#2C3E50") +
-  labs(x = "Missing item responses per person (% of recorded rows)", y = NULL) +
+  labs(x = "Missing item responses per person (% of scheduled beeps)", y = NULL) +
   theme_bs()
 ```
 

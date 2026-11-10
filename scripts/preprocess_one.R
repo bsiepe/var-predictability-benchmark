@@ -61,6 +61,13 @@ if (startsWith(dataset_id, "mock")) {
          ". valid values: within_day, daily")
   }
 
+  beeps_per_day <- suppressWarnings(as.integer(row$n_beeps_per_day))
+  if (is.na(beeps_per_day)) {
+    message("n_beeps_per_day '", row$n_beeps_per_day, "' is not a number: schedule not completed")
+    cfg$preprocess$complete_grid <- FALSE
+  }
+  cfg$preprocess$beeps_per_day <- beeps_per_day
+
   if (!is.na(row$variables_original) && nzchar(trimws(row$variables_original))) {
     selected <- trimws(strsplit(row$variables_original, ",")[[1]])
     missing_names <- setdiff(selected, features$name)

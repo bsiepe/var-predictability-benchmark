@@ -144,15 +144,26 @@ cat("LOCF: method=none returns n_imputed=0: PASS\n")
 # 5. lag_ok boundaries still enforced after LOCF
 pp_locf_day <- pp_locf
 pp_locf_day$lag_across_night <- FALSE
-df_locf3 <- data.frame(id = "p1", day = c(1L, 1L, 2L, 2L),
-                        beep = c(1L, 2L, 1L, 2L),
-                        x1 = c(1, 2, NA, 4))
+df_locf3 <- data.frame(id = "p1", day = c(1L, 1L, 2L, 2L, 2L),
+                        beep = c(1L, 2L, 1L, 2L, 3L),
+                        x1 = c(1, 2, 3, NA, 4))
 result <- build_person(df_locf3, "x1", scale_bounds, pp_locf_day)
 stopifnot(is.na(result$Ylag[3, "x1"]))            # lag_ok=FALSE at day boundary
 stopifnot(result$valid[3] == FALSE)
-stopifnot(!is.na(result$Ylag[4, "x1"]))           # within day, LOCF fills
-stopifnot(result$valid[4] == TRUE)
+stopifnot(!is.na(result$Ylag[5, "x1"]))           # within day, LOCF fills
+stopifnot(result$valid[5] == TRUE)
 cat("LOCF: lag_ok boundaries still enforced: PASS\n")
+
+# 5b. LOCF does not carry the previous evening into the morning
+df_locf_night <- data.frame(id = "p1", day = c(1L, 1L, 1L, 2L, 2L, 2L),
+                            beep = c(1L, 2L, 3L, 1L, 2L, 3L),
+                            x1 = c(1, 2, NA, NA, 3, 4))
+result <- build_person(df_locf_night, "x1", scale_bounds, pp_locf_day)
+stopifnot(is.na(result$Ylag[5, "x1"]), !result$valid[5], result$valid[6],
+          result$n_imputed == 1L)
+result_night <- build_person(df_locf_night, "x1", scale_bounds, pp_locf)
+stopifnot(!is.na(result_night$Ylag[5, "x1"]), result_night$n_imputed == 2L)
+cat("LOCF: no carry-forward across nights: PASS\n")
 
 # 6. multi-item: one item NA doesn't block another
 scale_bounds2 <- data.frame(name = c("x1", "x2"), scale_min = c(0, 0),
@@ -285,5 +296,90 @@ caught <- tryCatch(preprocess_dataset(df_centred, features_exc_bad, cfg_bounds, 
                    error = function(e) e)
 stopifnot(inherits(caught, "error"), grepl("requires declared", caught$message))
 cat("scale bounds: exception without declared bounds rejected: PASS\n")
+
+# --- schedule completion tests ---
+
+pp_grid <- c(pp_base, list(min_obs_person = 1L, complete_grid = TRUE, beeps_per_day = 4L))
+pp_grid$missing <- list(method = "locf_lag", max_consec = 2)
+cfg_grid <- list(preprocess = pp_grid)
+
+# p1: day 1 misses beep 3, day 2 misses beeps 3-4, day 3 entirely missed; p2 observed on days 2-3 only
+df_explicit <- data.frame(
+  id = rep(c("p1", "p2"), c(16, 8)),
+  day = c(rep(1:4, each = 4), rep(2:3, each = 4)),
+  beep = rep(1:4, times = 6),
+  x1 = c(0, 1, NA, 3, 4, 2, NA, NA, NA, NA, NA, NA, 1, 2, 3, 4,
+         1, 2, 3, 4, 0, NA, 2, 3)
+)
+df_dropped <- df_explicit[!is.na(df_explicit$x1), ]
+df_dropped <- df_dropped[rev(seq_len(nrow(df_dropped))), ]
+
+# 1. missed beeps stored as NA rows or dropped give identical person data
+res_explicit <- preprocess_dataset(df_explicit, features, cfg_grid, dataset_id = "test")
+res_dropped <- preprocess_dataset(df_dropped, features, cfg_grid, dataset_id = "test")
+stopifnot(identical(res_explicit$persons, res_dropped$persons),
+          identical(res_explicit$n_total, res_dropped$n_total),
+          res_explicit$n_total[["p1"]] == 16L, res_explicit$n_total[["p2"]] == 8L)
+cat("grid: NA rows and dropped rows give identical data: PASS\n")
+
+# 2. LOCF bridges a dropped beep; without completion the gap blocks the lag
+p1 <- res_dropped$persons$p1
+stopifnot(p1$valid[4], abs(p1$Ylag[4, "x1"] - 0.25) < 1e-10)
+cfg_nogrid <- cfg_grid
+cfg_nogrid$preprocess$complete_grid <- FALSE
+df_sorted <- df_dropped[order(df_dropped$id, df_dropped$day, df_dropped$beep), ]
+res_raw <- preprocess_dataset(df_sorted, features, cfg_nogrid, dataset_id = "test")
+stopifnot(sum(res_raw$n_valid) < sum(res_dropped$n_valid))
+cat("grid: LOCF bridges dropped beeps: PASS\n")
+
+# 3. daily mode completes over days only
+cfg_grid_daily <- cfg_grid
+cfg_grid_daily$preprocess$lag_across_night <- TRUE
+cfg_grid_daily$preprocess$use_consec_day <- TRUE
+cfg_grid_daily$preprocess$beeps_per_day <- 1L
+df_daily_dropped <- data.frame(id = "p1", day = c(1L, 2L, 4L, 5L), beep = 1L, x1 = c(0, 1, 3, 4))
+p <- preprocess_dataset(df_daily_dropped, features, cfg_grid_daily, dataset_id = "test")$persons$p1
+stopifnot(nrow(p$Y) == 5L, is.na(p$Y[3, "x1"]), p$valid[4], abs(p$Ylag[4, "x1"] - 0.25) < 1e-10)
+cat("grid: daily mode fills missing days: PASS\n")
+
+# 4. partly missing timing stops, also when the other column is entirely missing;
+# entirely missing timing skips completion
+df_partial_beep <- df_explicit
+df_partial_beep$beep[2] <- NA
+caught <- tryCatch(preprocess_dataset(df_partial_beep, features, cfg_grid, dataset_id = "test"),
+                   error = function(e) e)
+stopifnot(inherits(caught, "error"), grepl("NA beep", caught$message))
+df_partial_beep$day <- NA_integer_
+caught <- tryCatch(preprocess_dataset(df_partial_beep, features, cfg_grid, dataset_id = "test"),
+                   error = function(e) e)
+stopifnot(inherits(caught, "error"), grepl("NA beep", caught$message))
+df_no_beep <- df_dropped
+df_no_beep$beep <- NA_integer_
+res <- preprocess_dataset(df_no_beep, features, cfg_grid, dataset_id = "test")
+stopifnot(sum(res$n_total) == nrow(df_dropped))
+cat("grid: partly missing timing stops, absent timing skips: PASS\n")
+
+# 5. duplicate day x beep within a person stops
+caught <- tryCatch(preprocess_dataset(rbind(df_explicit, df_explicit[1, ]), features, cfg_grid,
+                                      dataset_id = "test"), error = function(e) e)
+stopifnot(inherits(caught, "error"), grepl("duplicate", caught$message))
+cat("grid: duplicate rows rejected: PASS\n")
+
+# 6. coding-sheet mismatch: more observed beeps stops, fewer warns, NA uses the observed range
+cfg_short <- cfg_grid
+cfg_short$preprocess$beeps_per_day <- 3L
+caught <- tryCatch(preprocess_dataset(df_explicit, features, cfg_short, dataset_id = "test"),
+                   error = function(e) e)
+stopifnot(inherits(caught, "error"), grepl("exceed", caught$message))
+cfg_long <- cfg_grid
+cfg_long$preprocess$beeps_per_day <- 5L
+caught <- tryCatch(preprocess_dataset(df_explicit, features, cfg_long, dataset_id = "test"),
+                   warning = function(w) w)
+stopifnot(inherits(caught, "warning"), grepl("fewer", caught$message))
+cfg_na <- cfg_grid
+cfg_na$preprocess$beeps_per_day <- NA
+res <- preprocess_dataset(df_dropped, features, cfg_na, dataset_id = "test")
+stopifnot(identical(res$n_total, res_explicit$n_total))
+cat("grid: coding-sheet mismatch handled: PASS\n")
 
 cat("all preprocess tests passed\n")

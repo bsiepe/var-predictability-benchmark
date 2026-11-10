@@ -16,6 +16,20 @@ dataset_modifiers <- list()
 # RMSE depends only on that width, so the bounds span the original width around 0 and a
 # person at their own mean maps to 0.5. centred values can exceed these bounds, and positions
 # on the scale (floor/ceiling) are not meaningful for these items
+# canceled and expired prompts share beep slots with answered prompts; slots left unanswered
+# return as NA rows through schedule completion
+dataset_modifiers[["0001"]] <- function(df, features) {
+  answered <- !(df$duration %in% c("Canceled", "Expired"))
+  list(df = df[answered, ], features = features)
+}
+
+# day restarts at 1 in study_period 1, which continues the day count of study_period 0.
+# each day ends with a row without a beep number
+dataset_modifiers[["0010"]] <- function(df, features) {
+  df$day <- df$day + df$study_period * max(df$day)
+  list(df = df[!is.na(df$beep), ], features = features)
+}
+
 dataset_modifiers[["0002"]] <- function(df, features) {
   centred <- c("sociable", "creative", "friendly", "organised", "self_esteem")
   width <- as.integer(features$answer_categories[match(centred, features$name)]) - 1
@@ -25,6 +39,18 @@ dataset_modifiers[["0002"]] <- function(df, features) {
 }
 
 dataset_modifiers[["0028"]] <- function(df, features) {
+  # beep 11 exceeds the 10-beep design; it only occurs after beep 10
+  df <- df[df$beep <= 10, ]
+  # unanswered rows sharing a beep slot are dropped; of answered rows sharing a slot, the later
+  # one in row order is kept
+  items <- features$name[features$answer_categories != ""]
+  answered <- rowSums(!is.na(df[items])) > 0
+  slot <- paste(df$id, df$day, df$beep)
+  shared <- slot %in% slot[duplicated(slot)]
+  df <- df[!(shared & !answered), ]
+  slot <- paste(df$id, df$day, df$beep)
+  df <- df[!duplicated(slot, fromLast = TRUE), ]
+
   composites <- list(
     paranoia   = list(cols = c("no_trust", "harm", "criticism"), ref = "no_trust"),
     self_esteem = list(cols = c("useless", "manage_well"), ref = "useless")
@@ -44,6 +70,14 @@ dataset_modifiers[["0028"]] <- function(df, features) {
   }))
 
   list(df = df, features = dplyr::bind_rows(features, new_rows))
+}
+
+# one person-day has 12 answered prompts numbered up to 18 in a 10-beep design, so its beep
+# numbers cannot be placed on the schedule; the whole person-day is removed
+dataset_modifiers[["0029"]] <- function(df, features) {
+  person_day <- paste(df$id, df$day)
+  off_schedule <- person_day %in% person_day[df$beep > 10]
+  list(df = df[!off_schedule, ], features = features)
 }
 
 dataset_modifiers[["0034"]] <- function(df, features) {
@@ -131,6 +165,17 @@ dataset_modifiers[["0061"]] <- function(df, features) {
   }))
 
   list(df = df, features = dplyr::bind_rows(features, new_rows))
+}
+
+# rows without a datetime are empty placeholders, some of which duplicate answered beep slots;
+# unanswered slots return as NA rows through schedule completion
+dataset_modifiers[["0063"]] <- function(df, features) {
+  no_datetime <- is.na(df$datetime) | as.character(df$datetime) %in% ""
+  items <- features$name[features$answer_categories != ""]
+  has_response <- rowSums(!is.na(df[no_datetime, items, drop = FALSE])) > 0
+  if (any(has_response))
+    stop("0063: ", sum(has_response), " rows without datetime have item responses")
+  list(df = df[!no_datetime, ], features = features)
 }
 
 dataset_modifiers[["0072"]] <- function(df, features) {

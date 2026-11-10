@@ -12,15 +12,23 @@ coding_sheet_path <- here::here("data", "meta", "datasets.tsv")
 
 dataset_modifiers <- list()
 
-# items are person-mean centred in openESM, so only the width of the original scale is known.
-# RMSE depends only on that width, so the bounds span the original width around 0 and a
-# person at their own mean maps to 0.5. centred values can exceed these bounds, and positions
-# on the scale (floor/ceiling) are not meaningful for these items
+# unanswered rows sharing a beep slot are dropped; of answered rows sharing a slot, the later
+# one in row order is kept
+resolve_shared_slots <- function(df, features) {
+  items <- features$name[features$answer_categories != ""]
+  answered <- rowSums(!is.na(df[items])) > 0
+  slot <- paste(df$id, df$day, df$beep)
+  shared <- slot %in% slot[duplicated(slot)]
+  df <- df[!(shared & !answered), ]
+  slot <- paste(df$id, df$day, df$beep)
+  df[!duplicated(slot, fromLast = TRUE), ]
+}
+
 # canceled and expired prompts share beep slots with answered prompts; slots left unanswered
-# return as NA rows through schedule completion
+# return as NA rows through schedule completion. two slots hold double submissions
 dataset_modifiers[["0001"]] <- function(df, features) {
   answered <- !(df$duration %in% c("Canceled", "Expired"))
-  list(df = df[answered, ], features = features)
+  list(df = resolve_shared_slots(df[answered, ], features), features = features)
 }
 
 # day restarts at 1 in study_period 1, which continues the day count of study_period 0.
@@ -30,6 +38,10 @@ dataset_modifiers[["0010"]] <- function(df, features) {
   list(df = df[!is.na(df$beep), ], features = features)
 }
 
+# items are person-mean centred in openESM, so only the width of the original scale is known.
+# RMSE depends only on that width, so the bounds span the original width around 0 and a
+# person at their own mean maps to 0.5. centred values can exceed these bounds, and positions
+# on the scale (floor/ceiling) are not meaningful for these items
 dataset_modifiers[["0002"]] <- function(df, features) {
   centred <- c("sociable", "creative", "friendly", "organised", "self_esteem")
   width <- as.integer(features$answer_categories[match(centred, features$name)]) - 1
@@ -40,16 +52,7 @@ dataset_modifiers[["0002"]] <- function(df, features) {
 
 dataset_modifiers[["0028"]] <- function(df, features) {
   # beep 11 exceeds the 10-beep design; it only occurs after beep 10
-  df <- df[df$beep <= 10, ]
-  # unanswered rows sharing a beep slot are dropped; of answered rows sharing a slot, the later
-  # one in row order is kept
-  items <- features$name[features$answer_categories != ""]
-  answered <- rowSums(!is.na(df[items])) > 0
-  slot <- paste(df$id, df$day, df$beep)
-  shared <- slot %in% slot[duplicated(slot)]
-  df <- df[!(shared & !answered), ]
-  slot <- paste(df$id, df$day, df$beep)
-  df <- df[!duplicated(slot, fromLast = TRUE), ]
+  df <- resolve_shared_slots(df[df$beep <= 10, ], features)
 
   composites <- list(
     paranoia   = list(cols = c("no_trust", "harm", "criticism"), ref = "no_trust"),
@@ -167,15 +170,8 @@ dataset_modifiers[["0061"]] <- function(df, features) {
   list(df = df, features = dplyr::bind_rows(features, new_rows))
 }
 
-# rows without a datetime are empty placeholders, some of which duplicate answered beep slots;
-# unanswered slots return as NA rows through schedule completion
 dataset_modifiers[["0063"]] <- function(df, features) {
-  no_datetime <- is.na(df$datetime) | as.character(df$datetime) %in% ""
-  items <- features$name[features$answer_categories != ""]
-  has_response <- rowSums(!is.na(df[no_datetime, items, drop = FALSE])) > 0
-  if (any(has_response))
-    stop("0063: ", sum(has_response), " rows without datetime have item responses")
-  list(df = df[!no_datetime, ], features = features)
+  list(df = resolve_shared_slots(df, features), features = features)
 }
 
 dataset_modifiers[["0072"]] <- function(df, features) {

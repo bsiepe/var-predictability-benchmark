@@ -122,45 +122,6 @@ ar_predict <- function(fitted, test) {
 }
 
 
-
-# ml AR(1): common AR slope across persons, person-specific intercepts and slopes
-# fitted by lmer with random intercept and random slope on the lagged variable
-ml_ar_fit <- function(train_persons, spec) {
-  # construct a data frame with all valid observations from all persons, including lagged variables
-  rows <- lapply(train_persons, function(p) {
-    valid <- p$valid
-    lag_df <- as.data.frame(p$Ylag[valid, , drop = FALSE])
-    colnames(lag_df) <- paste0(colnames(lag_df), "_lag")
-    cbind(data.frame(id = p$id, p$Y[valid, , drop = FALSE], check.names = FALSE), lag_df)
-  })
-  df <- dplyr::bind_rows(rows)
-  vars <- colnames(train_persons[[1]]$Y)
-  fits <- list()
-  # fit for each variable separately. lme4 warnings propagate to run_dataset(), which logs and counts them
-  for (v in vars) {
-    lag_v <- paste0(v, "_lag")
-    fits[[v]] <- lme4::lmer(
-      stats::as.formula(paste0("`", v, "` ~ 1 + `", lag_v, "` + (1 + `", lag_v, "` | id)")),
-      data = df
-    )
-  }
-  list(models = fits)
-}
-
-ml_ar_predict <- function(fitted, test_person) {
-  vars <- names(fitted$models)
-  lag_df <- as.data.frame(test_person$Ylag)
-  colnames(lag_df) <- paste0(vars, "_lag")
-  newdf <- data.frame(id = test_person$id, lag_df, check.names = FALSE)
-  Yhat <- matrix(NA_real_, nrow = nrow(test_person$Y), ncol = length(vars),
-                 dimnames = dimnames(test_person$Y))
-  for (v in vars) {
-    Yhat[, v] <- predict(fitted$models[[v]], newdata = newdf, allow.new.levels = TRUE)
-  }
-  Yhat
-}
-
-
 #--------------- VAR models
 # Person-specific VAR(1) fit by OLS; coefs is a (p+1) x p matrix
 # (row 1: intercepts, rows 2:(p+1): lagged coefficient matrix Phi)
@@ -229,52 +190,107 @@ lasso_var_fit <- function(train, spec) {
   list(coefs = coefs)
 }
 
-# builds the lmer formula string for one outcome variable in ml_var
-.ml_var_formula <- function(v, lag_vars, re_corr) {
-  sep   <- if (re_corr) " | " else " || "
-  fixed <- paste0("`", lag_vars, "`", collapse = " + ")
-  rand  <- paste0("(1 + ", paste0("`", lag_vars, "`", collapse = " + "), sep, "id)")
+#--------------- Multilevel models
+.ml_centring <- function(spec) {
+  center_lag <- match.arg(spec$center_lag %||% "person", c("none", "person"))
+  between <- isTRUE(spec$between)
+  if (between && center_lag != "person")
+    stop("between = TRUE requires center_lag = \"person\"", call. = FALSE)
+  list(center_lag = center_lag, between = between)
+}
+
+# person x item matrix of the person means of the lags over the training rows. computed at every
+# fit, so test rows never enter a centre
+.lag_centres <- function(train_persons) {
+  centres <- do.call(rbind, lapply(train_persons, function(p) {
+    colMeans(p$Ylag[p$valid, , drop = FALSE])
+  }))
+  rownames(centres) <- vapply(train_persons, function(p) as.character(p$id), character(1))
+  # an empty training window gives NaN, which would otherwise surface as NaN predictions
+  if (!all(is.finite(centres))) stop("non-finite lag centre: empty training window", call. = FALSE)
+  centres
+}
+
+# lag columns of person p for lmer, centred on the person's training mean if centres is given.
+# between = TRUE adds that mean as a person-level predictor
+.ml_predictors <- function(p, rows, vars, centres, between) {
+  lags <- p$Ylag[rows, vars, drop = FALSE]
+  centre <- NULL
+  if (!is.null(centres)) {
+    # use this person's training-window means, ordered to match the lag columns.
+    centre <- centres[as.character(p$id), vars, drop = TRUE]
+    # subtract each item's mean from its lag column
+    lags <- sweep(lags, 2, centre)
+  }
+
+  predictors <- as.data.frame(lags)
+  names(predictors) <- paste0(vars, "_lag")
+  if (between) {
+    means <- as.data.frame(lapply(centre, rep, times = nrow(lags)))
+    names(means) <- paste0(vars, "_lagmean")
+    predictors <- cbind(predictors, means)
+  }
+  predictors
+}
+
+# builds the lmer formula for one outcome variable
+.ml_formula <- function(v, lag_vars, re_corr, between_vars = NULL) {
+  sep <- if (re_corr) " | " else " || "
+  fixed <- paste0("`", c(lag_vars, between_vars), "`", collapse = " + ")
+  rand <- paste0("(1 + ", paste0("`", lag_vars, "`", collapse = " + "), sep, "id)")
   stats::as.formula(paste0("`", v, "` ~ 1 + ", fixed, " + ", rand))
 }
 
-ml_var_fit <- function(train_persons, spec) {
-  re_corr <- if (!is.null(spec$re_corr)) spec$re_corr else TRUE
-  rows <- lapply(train_persons, function(p) {
-    valid <- p$valid
-    lag_df <- as.data.frame(p$Ylag[valid, , drop = FALSE])
-    colnames(lag_df) <- paste0(colnames(lag_df), "_lag")
-    cbind(data.frame(id = p$id, p$Y[valid, , drop = FALSE], check.names = FALSE), lag_df)
-  })
-  df <- dplyr::bind_rows(rows)
+# one lmer per item with a random intercept and random slopes on the lags: the own lag for ml_ar,
+# all lags for ml_var
+.ml_fit <- function(train_persons, spec, own_lag_only) {
+  re_corr <- spec$re_corr %||% TRUE
+  centring <- .ml_centring(spec)
+  centres <- if (centring$center_lag == "person") .lag_centres(train_persons)
   vars <- colnames(train_persons[[1]]$Y)
-  lag_vars <- paste0(vars, "_lag")
+  rows <- lapply(train_persons, function(p) {
+    cbind(data.frame(id = p$id, p$Y[p$valid, , drop = FALSE], check.names = FALSE),
+          .ml_predictors(p, p$valid, vars, centres, centring$between))
+  })
+  # an item named like another item's lag column would silently stand in for it in the formula
+  stopifnot(!anyDuplicated(names(rows[[1]])))
+  df <- dplyr::bind_rows(rows)
   fits <- list()
   # lme4 warnings propagate to run_dataset(), which logs and counts them
   for (v in vars) {
-    fits[[v]] <- lme4::lmer(.ml_var_formula(v, lag_vars, re_corr), data = df)
+    predictors <- if (own_lag_only) v else vars
+    between_vars <- if (centring$between) paste0(predictors, "_lagmean")
+    fits[[v]] <- lme4::lmer(.ml_formula(v, paste0(predictors, "_lag"), re_corr, between_vars),
+                            data = df)
   }
-  list(models = fits)
+  list(models = fits, centres = centres, between = centring$between)
 }
 
-ml_var_predict <- function(fitted, test_person) {
+ml_ar_fit <- function(train_persons, spec) .ml_fit(train_persons, spec, own_lag_only = TRUE)
+ml_var_fit <- function(train_persons, spec) .ml_fit(train_persons, spec, own_lag_only = FALSE)
+
+# Ylag columns are selected by the fitted variable names, which guards against permutations
+.ml_predict <- function(fitted, test_person) {
   vars <- names(fitted$models)
-  # select and order Ylag columns by fitted variable names to guard against permutations
-  lag_df <- as.data.frame(test_person$Ylag[, vars, drop = FALSE])
-  colnames(lag_df) <- paste0(vars, "_lag")
-  newdf <- data.frame(id = test_person$id, lag_df, check.names = FALSE)
+  predictors <- .ml_predictors(test_person, seq_len(nrow(test_person$Ylag)), vars,
+                               fitted$centres, fitted$between)
+  newdf <- data.frame(id = test_person$id, predictors, check.names = FALSE)
   Yhat <- matrix(NA_real_, nrow = nrow(test_person$Y), ncol = length(vars),
                  dimnames = dimnames(test_person$Y))
   for (v in vars) {
-    Yhat[, v] <- predict(fitted$models[[v]], newdata = newdf, allow.new.levels = TRUE)
+    Yhat[, v] <- stats::predict(fitted$models[[v]], newdata = newdf, allow.new.levels = TRUE)
   }
   Yhat
 }
+
+ml_ar_predict <- .ml_predict
+ml_var_predict <- .ml_predict
 
 
 #----------- Model registry
 model_registry <- list(
   mean = list(label = "Person mean", level = "person",  fit = mean_fit, predict = mean_predict),
-  locf = list(label = "LOCF", level = "person", fit = locf_fit, predict = locf_predict),
+  naive = list(label = "Naive", level = "person", fit = naive_fit, predict = naive_predict),
   trend = list(label = "Deterministic trend", level = "person",  fit = trend_fit, predict = trend_predict),
   ri = list(label = "Random intercept", level = "dataset", fit = ri_fit,  predict = ri_predict),
   ar = list(label = "AR(1)",  level = "person",  fit = ar_fit, predict = ar_predict),

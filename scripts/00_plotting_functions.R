@@ -50,5 +50,5 @@ theme_bs <- function(base_size = 14) {
 # met.brewer("Hiroshige", 9) would instead shift the colours of the other models
 model_palette <- setNames(
   append(as.character(MetBrewer::met.brewer("Hiroshige", 8)), "#528fad", after = 6),
-  c("Mean", "LOCF", "Trend", "RI", "AR", "VAR", "LASSO VAR", "mlAR", "mlVAR")
+  c("Mean", "Naive", "Trend", "RI", "AR", "VAR", "LASSO VAR", "mlAR", "mlVAR")
 )

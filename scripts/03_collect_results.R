@@ -16,7 +16,7 @@ library(purrr)
 library(readr)
 source(here("scripts", "engine", "relative.R"))
 
-MODEL_LEVELS <- c("mean", "locf", "trend", "ri", "ar", "var", "lasso_var", "ml_ar", "ml_var")
+MODEL_LEVELS <- c("mean", "naive", "trend", "ri", "ar", "var", "lasso_var", "ml_ar", "ml_var")
 
 result_files <- list.files(here("output", "results"), pattern = "\\.rds$",
                            full.names = TRUE)

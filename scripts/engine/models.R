@@ -26,10 +26,10 @@ mean_predict <- function(fitted, test) {
          dimnames = dimnames(test$Y))
 }
 
-# Last observation carried forward: Yhat[t] = Y[t-1]
-locf_fit <- function(train, spec) list()
+# naive (random-walk) forecast: Yhat[t] = Y[t-1]
+naive_fit <- function(train, spec) list()
 
-locf_predict <- function(fitted, test) {
+naive_predict <- function(fitted, test) {
   Yhat <- test$Ylag
   dimnames(Yhat) <- dimnames(test$Y)
   Yhat

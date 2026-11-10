@@ -18,7 +18,7 @@ metrics <- dplyr::bind_rows(
   item_rows("p1", "ar", c(0.01, 0.01)),     # ratios 0.25 and 1
   item_rows("p1", "var", c(0.02, 0.005)),   # ratios 0.5 and 0.5
   item_rows("p2", "mean", c(0.04, 0.01)),
-  item_rows("p2", "locf", c(0, 0.02)),      # perfect on x1
+  item_rows("p2", "naive", c(0, 0.02)),      # perfect on x1
   item_rows("p2", "ar", c(0.02, 0.01)),
   item_rows("p3", "mean", c(0, 0.01)),      # x1 constant: reference MSE 0
   item_rows("p3", "ar", c(0, 0.02)),
@@ -42,8 +42,8 @@ stopifnot(all(out$rel_mse[out$model == "mean"] == 1, na.rm = TRUE))
 cat("mean model rel_mse = 1: PASS\n")
 
 # 3. undefined cases get NA with the right reason, only for the affected person x model
-stopifnot(get(out, "p2", "locf", "reason_na") == "zero_model",
-          is.na(get(out, "p2", "locf", "rel_mse")),
+stopifnot(get(out, "p2", "naive", "reason_na") == "zero_model",
+          is.na(get(out, "p2", "naive", "rel_mse")),
           is.na(get(out, "p2", "ar", "reason_na")),
           isTRUE(all.equal(get(out, "p2", "ar", "rel_mse"), sqrt(0.5 * 1))),
           get(out, "p3", "ar", "reason_na") == "zero_reference",

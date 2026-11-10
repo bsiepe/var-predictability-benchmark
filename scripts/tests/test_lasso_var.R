@@ -67,12 +67,12 @@ poisoned_train <- person
 poisoned_train$Y[o - 1, ] <- 1e6
 poisoned_lag <- person
 poisoned_lag$Ylag[o, ] <- 1e6
-for (m in setdiff(person_models, "locf")) {
+for (m in setdiff(person_models, "naive")) {
   base <- oos_predictions(model_registry[[m]], person, spec_of(m))
   out <- oos_predictions(model_registry[[m]], poisoned_train, spec_of(m))
   stopifnot(!identical(prediction_at(out, o), prediction_at(base, o)))
 }
-for (m in c("locf", "ar", "var", "lasso_var")) {
+for (m in c("naive", "ar", "var", "lasso_var")) {
   base <- oos_predictions(model_registry[[m]], person, spec_of(m))
   out <- oos_predictions(model_registry[[m]], poisoned_lag, spec_of(m))
   stopifnot(!identical(prediction_at(out, o), prediction_at(base, o)))

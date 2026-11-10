@@ -56,8 +56,8 @@ lasso_mean <- readRDS(here("output", "analysis", "lasso_mean.rds"))
 fit_times <- readRDS(here("output", "analysis", "fit_times.rds"))
 rel_mse_drops <- readRDS(here("output", "analysis", "rel_mse_drops.rds"))
 
-model_order <- c("mean", "locf", "trend", "ri", "ar", "var", "lasso_var", "ml_ar", "ml_var")
-model_labels <- c("Mean", "LOCF", "Trend", "RI", "AR", "VAR", "LASSO VAR", "mlAR", "mlVAR")
+model_order <- c("mean", "naive", "trend", "ri", "ar", "var", "lasso_var", "ml_ar", "ml_var")
+model_labels <- c("Mean", "Naive", "Trend", "RI", "AR", "VAR", "LASSO VAR", "mlAR", "mlVAR")
 
 dat_oos <- combined |>
   filter(set == "oos", is.finite(rmse), rmse > 0) |>

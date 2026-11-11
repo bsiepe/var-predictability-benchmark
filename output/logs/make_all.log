@@ -1,0 +1,918 @@
+nohup: ignoring input
+make clean
+make[1]: Entering directory '/home/bjoern/projects/var-predictability-benchmark'
+rm -f data/interim/*.rds output/results/*.rds output/meta/*.rds output/analysis/features.rds output/analysis/fit_relmse_m1.rds output/analysis/fit_relmse_m2.rds output/analysis/fit_relmse_m3.rds output/analysis/fit_relmse_m1_prior.rds output/analysis/fit_relmse_m2_prior.rds output/analysis/fit_relmse_m3_prior.rds output/analysis/fit_relmse_s1.rds output/analysis/fit_relmse_s1_prior.rds output/analysis/fit_relmse_s4.rds output/analysis/fit_relmse_s4_prior.rds
+make[1]: Leaving directory '/home/bjoern/projects/var-predictability-benchmark'
+make -k all
+make[1]: Entering directory '/home/bjoern/projects/var-predictability-benchmark'
+Rscript scripts/preprocess_one.R 0001
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0001: 50 persons kept, 29 excluded
+Rscript scripts/fit_one.R 0001 > output/logs/0001.log 2>&1
+Rscript scripts/preprocess_one.R 0002
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0002: 85 persons kept, 0 excluded
+Rscript scripts/fit_one.R 0002 > output/logs/0002.log 2>&1
+Rscript scripts/preprocess_one.R 0006
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0006: 125 persons kept, 0 excluded
+Rscript scripts/fit_one.R 0006 > output/logs/0006.log 2>&1
+Rscript scripts/preprocess_one.R 0008
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0008: 113 persons kept, 0 excluded
+Rscript scripts/fit_one.R 0008 > output/logs/0008.log 2>&1
+Rscript scripts/preprocess_one.R 0010
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0010: 121 persons kept, 9 excluded
+Rscript scripts/fit_one.R 0010 > output/logs/0010.log 2>&1
+Rscript scripts/preprocess_one.R 0011
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0011: 93 persons kept, 2 excluded
+Rscript scripts/fit_one.R 0011 > output/logs/0011.log 2>&1
+Rscript scripts/preprocess_one.R 0027
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0027: 70 persons kept, 8 excluded
+Rscript scripts/fit_one.R 0027 > output/logs/0027.log 2>&1
+Rscript scripts/preprocess_one.R 0028
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0028: 12 persons kept, 11 excluded
+Rscript scripts/fit_one.R 0028 > output/logs/0028.log 2>&1
+Rscript scripts/preprocess_one.R 0029
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0029: 17 persons kept, 7 excluded
+Rscript scripts/fit_one.R 0029 > output/logs/0029.log 2>&1
+Rscript scripts/preprocess_one.R 0032
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0032: 179 persons kept, 0 excluded
+Rscript scripts/fit_one.R 0032 > output/logs/0032.log 2>&1
+Rscript scripts/preprocess_one.R 0033
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0033: 40 persons kept, 0 excluded
+Rscript scripts/fit_one.R 0033 > output/logs/0033.log 2>&1
+Rscript scripts/preprocess_one.R 0034
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0034: 20 persons kept, 0 excluded
+Rscript scripts/fit_one.R 0034 > output/logs/0034.log 2>&1
+Rscript scripts/preprocess_one.R 0036
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0036: 22 persons kept, 74 excluded
+Rscript scripts/fit_one.R 0036 > output/logs/0036.log 2>&1
+Rscript scripts/preprocess_one.R 0041
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0041: 94 persons kept, 0 excluded
+Rscript scripts/fit_one.R 0041 > output/logs/0041.log 2>&1
+Rscript scripts/preprocess_one.R 0045
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0045: 98 persons kept, 7 excluded
+Rscript scripts/fit_one.R 0045 > output/logs/0045.log 2>&1
+Rscript scripts/preprocess_one.R 0052
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0052: 31 persons kept, 114 excluded
+Rscript scripts/fit_one.R 0052 > output/logs/0052.log 2>&1
+Rscript scripts/preprocess_one.R 0055
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0055: 67 persons kept, 5 excluded
+Rscript scripts/fit_one.R 0055 > output/logs/0055.log 2>&1
+Rscript scripts/preprocess_one.R 0061
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0061: 45 persons kept, 75 excluded
+Rscript scripts/fit_one.R 0061 > output/logs/0061.log 2>&1
+Rscript scripts/preprocess_one.R 0063
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0063: 68 persons kept, 105 excluded
+Rscript scripts/fit_one.R 0063 > output/logs/0063.log 2>&1
+Rscript scripts/preprocess_one.R 0072
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+preprocessed 0072: 70 persons kept, 492 excluded
+Rscript scripts/fit_one.R 0072 > output/logs/0072.log 2>&1
+Rscript scripts/03_collect_results.R
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+loaded 20 / 20 result files
+collected 20 datasets, 183690 rows in metrics
+undefined relative MSE (person x model x set rows):
+  set      reason_na   n
+1  in     zero_model   9
+2 oos     zero_model 302
+3 oos zero_reference  36
+combined.rds: 25560 rows, 20 datasets, 9 models
+Rscript scripts/03b_features.R 0001 0002 0006 0008 0010 0011 0027 0028 0029 0032 0033 0034 0036 0041 0045 0052 0055 0061 0063 0072
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+0001: 50 persons, 700 items, 63000 OOS rows
+0002: 85 persons, 510 items, 45900 OOS rows
+0006: 125 persons, 1000 items, 90000 OOS rows
+0008: 113 persons, 678 items, 61020 OOS rows
+0010: 121 persons, 726 items, 65340 OOS rows
+0011: 93 persons, 558 items, 50220 OOS rows
+0027: 70 persons, 490 items, 44100 OOS rows
+0028: 12 persons, 60 items, 5400 OOS rows
+0029: 17 persons, 136 items, 12240 OOS rows
+0032: 179 persons, 716 items, 64440 OOS rows
+0033: 40 persons, 840 items, 75600 OOS rows
+0034: 20 persons, 340 items, 30600 OOS rows
+0036: 22 persons, 66 items, 5940 OOS rows
+0041: 94 persons, 470 items, 42300 OOS rows
+0045: 98 persons, 784 items, 70560 OOS rows
+0052: 31 persons, 403 items, 36270 OOS rows
+0055: 67 persons, 268 items, 24120 OOS rows
+0061: 45 persons, 90 items, 8100 OOS rows
+0063: 68 persons, 1020 items, 91800 OOS rows
+0072: 70 persons, 350 items, 31500 OOS rows
+features.rds: 20 datasets, 1420 persons, 10205 items, 918450 OOS rows
+quarto render scripts/04_meta_regression.qmd -P refit_models:true
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+[31m
+
+processing file: 04_meta_regression.qmd
+[39m  |                                                  |                                          |   0%  |                                                  |.                                         |   2%                              |                                                  |..                                        |   4% [setup]                      |                                                  |..                                        |   6%                              |                                                  |...                                       |   8% [create-unique-id]           |                                                  |....                                      |   9%                              |                                                  |.....                                     |  11% [data-relative]              |                                                  |......                                    |  13%                              |                                                  |......                                    |  15% [excluded-relative]          |                                                  |.......                                   |  17%                              |                                                  |........                                  |  19% [meta-relmse-m1]             |                                                  |.........                                 |  21%                              |                                                  |..........                                |  23% [priors-relmse-m1]           |                                                  |..........                                |  25%                              |                                                  |...........                               |  26% [prior-predictive-m1]        |                                                  |............                              |  28%                              |                                                  |.............                             |  30% [summary-relmse-m1]          |                                                  |.............                             |  32%                              |                                                  |..............                            |  34% [traceplot-relmse-m1]        |                                                  |...............                           |  36%                              |                                                  |................                          |  38% [ppcheck-relmse-m1]          |                                                  |.................                         |  40%                              |                                                  |.................                         |  42% [moderator-training-length]  |                                                  |..................                        |  43%                              |                                                  |...................                       |  45% [meta-relmse-m2]             |                                                  |....................                      |  47%                              |                                                  |.....................                     |  49% [prior-predictive-m2]        |                                                  |.....................                     |  51%                              |                                                  |......................                    |  53% [summary-relmse-m2]          |                                                  |.......................                   |  55%                              |                                                  |........................                  |  57% [moderator-autocorrelation]  |                                                  |.........................                 |  58%                              |                                                  |.........................                 |  60% [meta-relmse-m3]             |                                                  |..........................                |  62%                              |                                                  |...........................               |  64% [prior-predictive-m3]        |                                                  |............................              |  66%                              |                                                  |.............................             |  68% [summary-relmse-m3]          |                                                  |.............................             |  70%                              |                                                  |..............................            |  72% [meta-relmse-s1]             |                                                  |...............................           |  74%                              |                                                  |................................          |  75% [prior-predictive-s1]        |                                                  |................................          |  77%                              |                                                  |.................................         |  79% [summary-relmse-s1]          |                                                  |..................................        |  81%                              |                                                  |...................................       |  83% [meta-relmse-s4]             |                                                  |....................................      |  85%                              |                                                  |....................................      |  87% [prior-predictive-s4]        |                                                  |.....................................     |  89%                              |                                                  |......................................    |  91% [summary-relmse-s4]          |                                                  |.......................................   |  92%                              |                                                  |........................................  |  94% [convergence]                |                                                  |........................................  |  96%                              |                                                  |......................................... |  98% [session-info]               |                                                  |..........................................| 100%                                                                                                                                                  
+[31moutput file: 04_meta_regression.knit.md
+
+[39m[31mFehler beim Beenden von parallel: nicht alle Kindprozesse konnten beendet
+werden
+[39m[1mpandoc [22m
+  to: html
+  output-file: 04_meta_regression.html
+  standalone: true
+  embed-resources: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  toc: true
+  number-sections: true
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  title: VAR Predictability Benchmark
+  subtitle: Meta Regression
+  author:
+    - name: Björn S. Siepe
+      orcid: 0000-0002-9558-4648
+      affiliations: University of Marburg
+  date: '`r Sys.Date()`'
+  theme: cosmo
+  code-summary: Show the code
+  
+Output created: 04_meta_regression.html
+
+quarto render scripts/05_results.qmd
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+[31m
+
+processing file: 05_results.qmd
+[39m  |                                                      |                                              |   0%  |                                                      |.                                             |   2%                          |                                                      |..                                            |   4% [setup]                  |                                                      |...                                           |   6%                          |                                                      |....                                          |   8% [tbl-sample]             |                                                      |.....                                         |  10%                          |                                                      |......                                        |  12% [sample-totals]          |                                                      |.......                                       |  14%                          |                                                      |........                                      |  16% [tbl-exclusions]         |                                                      |........                                      |  18%                          |                                                      |.........                                     |  20% [tbl-exclusions-relmse]  |                                                      |..........                                    |  22%                          |                                                      |...........                                   |  24% [tbl-nonconvergence]     |                                                      |............                                  |  27%                          |                                                      |.............                                 |  29% [tbl-computation-time]   |                                                      |..............                                |  31%                          |                                                      |...............                               |  33% [computation-machine]    |                                                      |................                              |  35%                          |                                                      |.................                             |  37% [tbl-computation-times]  |                                                      |..................                            |  39%                          |                                                      |...................                           |  41% [tbl-extreme-relmse]     |                                                      |....................                          |  43%                          |                                                      |.....................                         |  45% [tbl-extreme-var-data]   |                                                      |......................                        |  47%                          |                                                      |.......................                       |  49% [tbl-out-of-scale]       |                                                      |.......................                       |  51%                          |                                                      |........................                      |  53% [fig-rmse-ladder]        |                                                      |.........................                     |  55%                          |                                                      |..........................                    |  57% [fig-relmse-ladder]      |                                                      |...........................                   |  59%                          |                                                      |............................                  |  61% [fig-is-oos-barbell]     |                                                      |.............................                 |  63%                          |                                                      |..............................                |  65% [fig-dominance]          |                                                      |...............................               |  67%                          |                                                      |................................              |  69% [fig-decomposition]      |                                                      |.................................             |  71%                          |                                                      |..................................            |  73% [fig-shrinkage]          |                                                      |...................................           |  76%                          |                                                      |....................................          |  78% [fig-pooling-length]     |                                                      |.....................................         |  80%                          |                                                      |......................................        |  82% [fig-cross-dynamics]     |                                                      |......................................        |  84%                          |                                                      |.......................................       |  86% [fig-gallery]            |                                                      |........................................      |  88%                          |                                                      |.........................................     |  90% [fig-absolute-relative]  |                                                      |..........................................    |  92%                          |                                                      |...........................................   |  94% [fig-is-oos-selection]   |                                                      |............................................  |  96%                          |                                                      |............................................. |  98% [fig-caterpillar-m1]     |                                                      |..............................................| 100%                                                                                                                                          
+[31moutput file: 05_results.knit.md
+
+[39m[1mpandoc [22m
+  to: html
+  output-file: 05_results.html
+  standalone: true
+  embed-resources: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  toc: true
+  number-sections: true
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  title: VAR Predictability Benchmark
+  subtitle: Results
+  author:
+    - name: Björn S. Siepe
+      orcid: 0000-0002-9558-4648
+      affiliations: University of Marburg
+  date: '`r Sys.Date()`'
+  knitr:
+    opts_chunk:
+      fig.showtext: true
+  theme: cosmo
+  code-summary: Show the code
+  
+Output created: 05_results.html
+
+quarto render scripts/01_descriptives.qmd
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+[31m
+
+processing file: 01_descriptives.qmd
+[39m  |                                                          |                                                  |   0%  |                                                          |.....                                             |   9%                      |                                                          |.........                                         |  18% [unnamed-chunk-1]    |                                                          |..............                                    |  27%                      |                                                          |..................                                |  36% [tbl-design]         |                                                          |.......................                           |  45%                      |                                                          |...........................                       |  55% [tbl-items]          |                                                          |................................                  |  64%                      |                                                          |....................................              |  73% [fig-series-length]  |                                                          |.........................................         |  82%                      |                                                          |.............................................     |  91% [fig-missingness]    |                                                          |..................................................| 100%                                                                                                                                  
+[31moutput file: 01_descriptives.knit.md
+
+[39m[1mpandoc [22m
+  to: html
+  output-file: 01_descriptives.html
+  standalone: true
+  embed-resources: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  toc: true
+  number-sections: true
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  title: VAR Predictability Benchmark
+  subtitle: Descriptives
+  author:
+    - name: Björn S. Siepe
+      orcid: 0000-0002-9558-4648
+      affiliations: University of Marburg
+  date: '`r Sys.Date()`'
+  knitr:
+    opts_chunk:
+      fig.showtext: true
+  theme: cosmo
+  code-summary: Show the code
+  
+Output created: 01_descriptives.html
+
+make[1]: Leaving directory '/home/bjoern/projects/var-predictability-benchmark'

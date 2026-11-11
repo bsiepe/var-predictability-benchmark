@@ -1,0 +1,89 @@
+quarto render scripts/05_results.qmd
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+- The project is out-of-sync -- use `]8;;x-r-run:renv::status()renv::status()]8;;` for details.
+[31m
+
+processing file: 05_results.qmd
+[39m  |                                                      |                                              |   0%  |                                                      |.                                             |   2%                          |                                                      |..                                            |   4% [setup]                  |                                                      |...                                           |   6%                          |                                                      |....                                          |   8% [tbl-sample]             |                                                      |.....                                         |  10%                          |                                                      |......                                        |  12% [sample-totals]          |                                                      |.......                                       |  14%                          |                                                      |........                                      |  16% [tbl-exclusions]         |                                                      |........                                      |  18%                          |                                                      |.........                                     |  20% [tbl-exclusions-relmse]  |                                                      |..........                                    |  22%                          |                                                      |...........                                   |  24% [tbl-nonconvergence]     |                                                      |............                                  |  27%                          |                                                      |.............                                 |  29% [tbl-computation-time]   |                                                      |..............                                |  31%                          |                                                      |...............                               |  33% [computation-machine]    |                                                      |................                              |  35%                          |                                                      |.................                             |  37% [tbl-computation-times]  |                                                      |..................                            |  39%                          |                                                      |...................                           |  41% [tbl-extreme-relmse]     |                                                      |....................                          |  43%                          |                                                      |.....................                         |  45% [tbl-extreme-var-data]   |                                                      |......................                        |  47%                          |                                                      |.......................                       |  49% [tbl-out-of-scale]       |                                                      |.......................                       |  51%                          |                                                      |........................                      |  53% [fig-rmse-ladder]        |                                                      |.........................                     |  55%                          |                                                      |..........................                    |  57% [fig-relmse-ladder]      |                                                      |...........................                   |  59%                          |                                                      |............................                  |  61% [fig-is-oos-barbell]     |                                                      |.............................                 |  63%                          |                                                      |..............................                |  65% [fig-dominance]          |                                                      |...............................               |  67%                          |                                                      |................................              |  69% [fig-decomposition]      |                                                      |.................................             |  71%                          |                                                      |..................................            |  73% [fig-shrinkage]          |                                                      |...................................           |  76%                          |                                                      |....................................          |  78% [fig-pooling-length]     |                                                      |.....................................         |  80%                          |                                                      |......................................        |  82% [fig-cross-dynamics]     |                                                      |......................................        |  84%                          |                                                      |.......................................       |  86% [fig-gallery]            |                                                      |........................................      |  88%                          |                                                      |.........................................     |  90% [fig-absolute-relative]  |                                                      |..........................................    |  92%                          |                                                      |...........................................   |  94% [fig-is-oos-selection]   |                                                      |............................................  |  96%                          |                                                      |............................................. |  98% [fig-caterpillar-m1]     |                                                      |..............................................| 100%                                                                                                                                          
+[31moutput file: 05_results.knit.md
+
+[39m[1mpandoc [22m
+  to: html
+  output-file: 05_results.html
+  standalone: true
+  embed-resources: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  toc: true
+  number-sections: true
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  title: VAR Predictability Benchmark
+  subtitle: Results
+  author:
+    - name: Björn S. Siepe
+      orcid: 0000-0002-9558-4648
+      affiliations: University of Marburg
+  date: '`r Sys.Date()`'
+  knitr:
+    opts_chunk:
+      fig.showtext: true
+  theme: cosmo
+  code-summary: Show the code
+  
+Output created: 05_results.html
+
+quarto render scripts/01_descriptives.qmd
+[1mpandoc [22m
+  to: html
+  output-file: 01_descriptives.html
+  standalone: true
+  embed-resources: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  toc: true
+  number-sections: true
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  title: VAR Predictability Benchmark
+  subtitle: Descriptives
+  author:
+    - name: Björn S. Siepe
+      orcid: 0000-0002-9558-4648
+      affiliations: University of Marburg
+  date: '`r Sys.Date()`'
+  theme: cosmo
+  code-summary: Show the code
+  
+Output created: 01_descriptives.html
+
+EXIT:130

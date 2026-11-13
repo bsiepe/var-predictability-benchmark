@@ -54,6 +54,13 @@ rel_mse_drops <- readRDS(here("output", "analysis", "rel_mse_drops.rds"))
 model_order <- c("mean", "naive", "trend", "ri", "ar", "var", "lasso_var", "ml_ar", "ml_var")
 model_labels <- c("Mean", "Naive", "Trend", "RI", "AR", "VAR", "LASSO VAR", "mlAR", "mlVAR")
 
+# duplicated author-year labels get the dataset id
+dataset_labels <- dataset_meta |>
+  distinct(dataset_id, first_author, year) |>
+  mutate(dataset = paste0(first_author, " (", year, ")"),
+         dataset = if_else(duplicated(dataset) | duplicated(dataset, fromLast = TRUE),
+                           paste0(dataset, " [", dataset_id, "]"), dataset))
+
 dat_oos <- combined |>
   filter(set == "oos", is.finite(rmse), rmse > 0) |>
   mutate(model = factor(model, levels = model_order, labels = model_labels))
@@ -248,6 +255,68 @@ rel_mse_drops |>
   knitr::kable()
 ```
 
+## Estimation summary
+
+```{r}
+#| label: tbl-estimation-summary
+#| tbl-cap: "Estimation issues and computation time per model, pooled across datasets. Issue: rank-deficient fits (AR, VAR), boundary fits (LASSO VAR) or singular fits (RI, mlAR, mlVAR), as a share of all fits. Convergence warnings are counted per 100 lmer fits. Persons without relative MSE are OOS person-model combinations."
+
+# each model raises at most one of these types, so they share a column
+issue_types <- c("rank_deficient", "lasso_boundary", "singular")
+
+issue_summary <- fit_issues |>
+  mutate(type = if_else(type %in% issue_types, "issue", type)) |>
+  summarise(n = sum(n), .by = c(dataset_id, model, n_fits, type)) |>
+  summarise(issue_pct = 100 * sum(n[type == "issue"]) / sum(n_fits[type == "issue"]),
+            issue_datasets = n_distinct(dataset_id[type == "issue" & n > 0]),
+            convergence_per_100 = 100 * sum(n[type == "convergence"]) /
+              sum(n_fits[type == "convergence"]),
+            other = sum(n[type == "other"]),
+            .by = model)
+
+failures <- dataset_meta |>
+  mutate(model = lapply(model_failures, names)) |>
+  select(dataset_id, model, failed = model_failures) |>
+  unnest(c(model, failed)) |>
+  summarise(failed = sum(failed), .by = model)
+
+undefined_rel_mse <- rel_mse_drops |>
+  filter(set == "oos") |>
+  summarise(undefined = sum(n), .by = model)
+
+time_summary <- fit_times |>
+  summarise(cpu_h = sum(cpu_sec) / 3600, .by = model) |>
+  mutate(cpu_pct = 100 * cpu_h / sum(cpu_h))
+
+failures |>
+  left_join(issue_summary, by = "model") |>
+  left_join(undefined_rel_mse, by = "model") |>
+  left_join(time_summary, by = "model") |>
+  mutate(undefined = coalesce(undefined, 0L),
+         model = factor(model, levels = model_order, labels = model_labels)) |>
+  arrange(model) |>
+  select(model, failed, issue_pct, issue_datasets, convergence_per_100, other, undefined,
+         cpu_h, cpu_pct) |>
+  knitr::kable(digits = 1, col.names = c("Model", "Failed datasets", "Issue (% of fits)",
+                                         "Datasets with issue", "Convergence warnings",
+                                         "Other warnings", "Persons without relative MSE",
+                                         "CPU time (h)", "CPU time (%)"))
+```
+
+```{r}
+#| label: estimation-overview
+lasso_mean_oos <- filter(lasso_mean, set == "oos")
+
+tibble(datasets = nrow(dataset_meta),
+       cpu_total_h = sum(fit_times$cpu_sec) / 3600,
+       ml_var_cpu_pct = 100 * sum(fit_times$cpu_sec[fit_times$model == "ml_var"]) /
+         sum(fit_times$cpu_sec),
+       ml_var_uncorrelated = sum(dataset_meta$ml_var_uncorrelated, na.rm = TRUE),
+       lasso_equals_mean_pct = 100 * weighted.mean(lasso_mean_oos$share_equals_mean,
+                                                   lasso_mean_oos$n_predictions),
+       machines = n_distinct(fit_times$cpu))
+```
+
 ## Non-Convergence
 
 ```{r}
@@ -326,12 +395,6 @@ fit_times |>
 unique(fit_times$cpu)
 ```
 
-```{r}
-#| label: tbl-computation-times
-#| tbl-cap: "Average computation time (in seconds) for each model and dataset."
-
-
-```
 
 ## Extreme Relative Errors
 
@@ -497,66 +560,64 @@ ggsave("fig_rel_mse_overall.pdf", width = 10, height = 6, dpi = 300,
 path = here("figures"))
 ```
 
-## In-sample vs. out-of-sample RMSE
+## In-sample vs. out-of-sample relative MSE
 
 We here compute the in-sample performance by fitting each model on the whole time series, without a test-set split.
 
 ```{r}
 #| label: fig-is-oos-barbell
-#| fig-cap: "In-sample and OOS RMSE per dataset and model. Points are means across persons. Rows are ordered by the gap of the mean model."
+#| fig-cap: "In-sample and OOS MSE relative to the mean model per dataset and model. The in-sample reference is the mean model fitted to the whole series. Points are geometric means across persons. Rows are ordered by the gap of mlVAR. Values outside the plotted range are printed at the panel edge."
 #| fig-height: 10
 #| fig-width: 12
 
-barbell_labels <- dataset_meta |>
-  distinct(dataset_id, first_author, year) |>
-  mutate(dataset = paste0(first_author, " (", year, ")"),
-         dataset = if_else(duplicated(dataset) | duplicated(dataset, fromLast = TRUE),
-                           paste0(dataset, " [", dataset_id, "]"), dataset))
-
 is_oos <- combined |>
-  filter(set %in% c("in", "oos"), is.finite(rmse), rmse > 0) |>
-  select(dataset_id, id, model, set, rmse) |>
-  pivot_wider(names_from = set, values_from = rmse) |>
+  filter(set %in% c("in", "oos"), model != "mean", is.finite(rel_mse)) |>
+  select(dataset_id, id, model, set, rel_mse) |>
+  pivot_wider(names_from = set, values_from = rel_mse) |>
   # persons enter only with both sets, so the dataset gap is paired
   filter(is.finite(`in`), is.finite(oos)) |>
-  summarise(is = mean(`in`), oos = mean(oos), .by = c(dataset_id, model)) |>
-  left_join(barbell_labels, by = "dataset_id") |>
+  summarise(is = geo_mean(`in`), oos = geo_mean(oos), .by = c(dataset_id, model)) |>
+  left_join(dataset_labels, by = "dataset_id") |>
   mutate(direction = if_else(oos > is, "OOS higher", "OOS lower"),
-         model = factor(model, levels = model_order, labels = model_labels))
+         model = factor(model, levels = model_order[model_order != "mean"],
+                        labels = model_labels[model_order != "mean"]))
 
-# largest mean-model gap at the top
+# largest mlVAR gap at the top
 row_order <- is_oos |>
-  filter(model == "Mean") |>
-  arrange(oos - is) |>
+  filter(model == "mlVAR") |>
+  arrange(oos / is) |>
   pull(dataset)
 
-# points beyond the cap are drawn at the cap and labelled with their value
-x_cap <- 0.4
+# symmetric around 1 on the log axis
+x_lim_gap <- c(0.4, 2.5)
 
-is_oos <- is_oos |>
-  mutate(dataset = factor(dataset, levels = union(row_order, dataset)),
-         is_plot = pmin(is, x_cap), oos_plot = pmin(oos, x_cap))
+is_oos <- mutate(is_oos, dataset = factor(dataset, levels = union(row_order, dataset)))
 
 is_oos_points <- is_oos |>
-  pivot_longer(c(is, oos), names_to = "set", values_to = "rmse") |>
+  pivot_longer(c(is, oos), names_to = "set", values_to = "rel_mse") |>
   mutate(set = factor(set, levels = c("is", "oos"), labels = c("In-sample", "Out-of-sample")),
-         rmse_plot = pmin(rmse, x_cap))
+         outside = rel_mse < x_lim_gap[1] | rel_mse > x_lim_gap[2],
+         x_label = if_else(rel_mse > 1, x_lim_gap[2], x_lim_gap[1]),
+         hjust = if_else(rel_mse > 1, 1, 0))
 
 ggplot(is_oos, aes(y = dataset)) +
-  geom_segment(aes(x = is_plot, xend = oos_plot, colour = direction), linewidth = 0.8) +
-  geom_point(data = is_oos_points, aes(x = rmse_plot, fill = set),
+  geom_vline(xintercept = 1, colour = "grey50", linewidth = 0.3) +
+  geom_segment(aes(x = is, xend = oos, colour = direction), linewidth = 0.8) +
+  geom_point(data = is_oos_points, aes(x = rel_mse, fill = set),
              shape = 21, colour = "grey30", size = 1.8, stroke = 0.3) +
-  geom_text(data = filter(is_oos_points, rmse > x_cap),
-            aes(x = x_cap, label = sprintf("%.2f", rmse)),
-            hjust = 1.3, size = 2.5, colour = "grey20") +
+  geom_text(data = filter(is_oos_points, outside),
+            aes(x = x_label, label = sprintf("%.2f", rel_mse), hjust = hjust),
+            size = 2.5, colour = "grey20") +
   scale_colour_manual(values = c("OOS higher" = "grey70",
                                  "OOS lower" = component_palette[["Cross-dynamics"]]),
                       name = NULL) +
   scale_fill_manual(values = c("In-sample" = "white",
                                "Out-of-sample" = component_palette[["Autoregression"]]),
                     name = NULL) +
+  scale_x_log10(breaks = ratio_breaks) +
   ggh4x::facet_wrap2(~ model, nrow = 2, axes = "all", remove_labels = "y") +
-  labs(x = "RMSE [0, 1]", y = NULL) +
+  coord_cartesian(xlim = x_lim_gap) +
+  labs(x = "MSE relative to the mean model (log scale)", y = NULL) +
   theme_bs(base_size = 11) +
   theme(legend.position = "bottom")
 ```
@@ -1030,52 +1091,283 @@ ggplot(selection, aes(x = model, y = share, fill = set)) +
 
 # Model-Based Estimates of Predictive Accuracy
 
+```{r}
+#| label: setup-meta
+
+# fitted in 04_meta_regression.qmd
+fit_m1 <- readRDS(here("output", "analysis", "fit_relmse_m1.rds"))
+fit_m2 <- readRDS(here("output", "analysis", "fit_relmse_m2.rds"))
+fit_m3 <- readRDS(here("output", "analysis", "fit_relmse_m3.rds"))
+fit_s1 <- readRDS(here("output", "analysis", "fit_relmse_s1.rds"))
+fit_s4 <- readRDS(here("output", "analysis", "fit_relmse_s4.rds"))
+
+meta_order <- model_order[model_order != "mean"]
+meta_labels <- model_labels[model_order != "mean"]
+
+# one population-level coefficient per model and draw. "b_model" gives the location of log
+# relative MSE and "b_sigma_model" the residual scale on the log link. a suffix such as
+# ":log_n_within" selects the slope of that moderator instead
+coef_draws <- function(fit, prefix, suffix = "") {
+  posterior::as_draws_df(fit, variable = paste0("^", prefix, "[a-z_]+", suffix, "$"),
+                         regex = TRUE) |>
+    as_tibble() |>
+    pivot_longer(starts_with(prefix), names_to = "model",
+                 names_pattern = paste0(prefix, "([a-z_]+)", suffix), values_to = "value") |>
+    select(.draw, model, value)
+}
+
+# posterior median and 95% equal-tailed interval
+fmt_ci <- function(x) {
+  sprintf("%.2f [%.2f, %.2f]", median(x), quantile(x, 0.025), quantile(x, 0.975))
+}
+```
 
 ## M1 (Model using only model as predictor)
 
-We estimated a log-normal meta-regression model with only the model as a predictor. We can now use the outputs of this model to create a forest plot-like visualization of the predictive accuracy of each model across datasets. 
-
-TODO I'm not sure if that is the best way to visualize this - the dataset specific effects might not really come through here. 
+We estimated a student-t location scale meta-model with only the model as a predictor. We can now use the outputs of this model to create a forest plot-like visualization of the predictive accuracy of each model across datasets.
 
 ```{r}
-#| label: fig-caterpillar-m1
-#| fig-cap: "Dataset-level predicted RMSE by model. Points are posterior means; thick bars are 80% CIs, thin lines are 95% CIs."
+#| label: tbl-m1
+#| tbl-cap: "M1: population-level OOS MSE relative to the mean model (posterior median and 95% CrI), the posterior probability that it is below 1, and the residual scale of log relative MSE across persons."
+
+m1_location <- coef_draws(fit_m1, "b_model") |>
+  mutate(rel_mse = exp(value)) |>
+  summarise(rel_mse_ci = fmt_ci(rel_mse), p_below = mean(rel_mse < 1), .by = model)
+
+m1_sigma <- coef_draws(fit_m1, "b_sigma_model") |>
+  mutate(sigma = exp(value)) |>
+  summarise(sigma_ci = fmt_ci(sigma), .by = model)
+
+m1_location |>
+  left_join(m1_sigma, by = "model") |>
+  mutate(model = factor(model, levels = meta_order, labels = meta_labels)) |>
+  arrange(model) |>
+  knitr::kable(digits = 2, col.names = c("Model", "Relative MSE", "P(< 1)",
+                                         "Residual scale (log)"))
+```
+
+```{r}
+#| label: tbl-m1-steps
+#| tbl-cap: "M1: change in OOS MSE for each step of the complexity ladder, as the ratio of the population-level relative MSE after vs. before the step (posterior median and 95% CrI), and the posterior probability that the step lowers the error."
+
+step_levels <- c("Mean → AR", "AR → VAR", "VAR → mlVAR", "AR → mlAR", "mlAR → mlVAR",
+                 "Mean → mlVAR", "AR → LASSO VAR", "VAR → LASSO VAR")
+
+coef_draws(fit_m1, "b_model") |>
+  mutate(rel_mse = exp(value)) |>
+  select(.draw, model, rel_mse) |>
+  pivot_wider(names_from = model, values_from = rel_mse) |>
+  # the mean model is the reference of relative MSE
+  mutate(mean = 1,
+         `Mean → AR` = ar / mean, `AR → VAR` = var / ar, `VAR → mlVAR` = ml_var / var,
+         `AR → mlAR` = ml_ar / ar, `mlAR → mlVAR` = ml_var / ml_ar, `Mean → mlVAR` = ml_var / mean,
+         `AR → LASSO VAR` = lasso_var / ar, `VAR → LASSO VAR` = lasso_var / var) |>
+  select(.draw, all_of(step_levels)) |>
+  pivot_longer(-.draw, names_to = "step", values_to = "ratio") |>
+  summarise(ratio_ci = fmt_ci(ratio), p_lower = mean(ratio < 1), .by = step) |>
+  mutate(step = factor(step, levels = step_levels)) |>
+  arrange(step) |>
+  knitr::kable(digits = 2, col.names = c("Step", "MSE ratio after vs. before", "P(< 1)"))
+```
+
+
+For the dataset-level estimates, we add the dataset's random intercept and the random intercept of its dataset × model combination to each model's population-level coefficient. We leave out the person-level random intercept. Each estimate therefore describes a typical person in that dataset, whose person effect is zero. 
+
+
+```{r}
+#| label: fig-m1-datasets
+#| fig-cap: "M1: dataset-level OOS MSE relative to the mean model. Points are posterior medians, thick bars are 80% and thin bars 95% CrIs. All datasets is the population-level estimate."
 #| fig-height: 10
 #| fig-width: 9
 
-fit_rmse_lognormal <- readRDS(here::here("output", "analysis", "fit_rmse_lognormal.rds"))
-
-newdata <- expand.grid(
-  model = levels(fit_rmse_lognormal$data$model),
-  dataset_id = unique(fit_rmse_lognormal$data$dataset_id),
-  unique_id = NA,
-  stringsAsFactors = FALSE
-)
-
-preds <- newdata |>
-  add_epred_draws(fit_rmse_lognormal, re_formula = ~ (1 | dataset_id) + (1 | dataset_id:model),
-                  # for the dataset-level predictions, we do not include the person-level random effect
-                  allow_new_levels = TRUE) |>
+# the linear predictor without the person effect is the dataset-level location of log relative MSE
+m1_datasets <- expand_grid(model = levels(fit_m1$data$model),
+                           dataset_id = unique(fit_m1$data$dataset_id)) |>
+  add_linpred_draws(fit_m1, re_formula = ~ (1 | dataset_id) + (1 | dataset_id:model)) |>
   ungroup() |>
-  mutate(model = factor(model, levels = model_order, labels = model_labels))
+  left_join(dataset_labels, by = "dataset_id") |>
+  mutate(rel_mse = exp(.linpred)) |>
+  select(.draw, model, dataset, rel_mse)
 
-preds <- preds |>
-  left_join(dataset_meta |> select(dataset_id, first_author, year), by = "dataset_id") |>
-  mutate(dataset_label = paste0(first_author, " (", year, ")"))
+m1_population <- coef_draws(fit_m1, "b_model") |>
+  mutate(rel_mse = exp(value), dataset = "All datasets") |>
+  select(.draw, model, dataset, rel_mse)
 
-ggplot(preds, aes(x = .epred, y = reorder(dataset_label, .epred),
-                  colour = model)) +
-  stat_pointinterval(position = position_dodge(width = 0.7),
-                     .width = c(0.80, 0.95),
-                     point_size = 1.5, interval_size_range = c(0.4, 1.2)) +
+# lowest mlVAR error at the top, below the population-level row
+forest_order <- m1_datasets |>
+  filter(model == "ml_var") |>
+  summarise(median = median(rel_mse), .by = dataset) |>
+  arrange(desc(median)) |>
+  pull(dataset)
+
+m1_forest <- bind_rows(m1_datasets, m1_population) |>
+  mutate(dataset = factor(dataset, levels = c(forest_order, "All datasets")),
+         model = factor(model, levels = meta_order, labels = meta_labels))
+
+ggplot(m1_forest, aes(x = rel_mse, y = dataset, colour = model)) +
+  geom_hline(yintercept = seq(1.5, nlevels(m1_forest$dataset) - 0.5, 1),
+             colour = "grey90", linewidth = 0.3) +
+  geom_vline(xintercept = 1, colour = "grey50", linetype = "dashed") +
+  ggdist::stat_pointinterval(position = position_dodge(width = 0.7), .width = c(0.8, 0.95),
+                             point_size = 1.5, interval_size_range = c(0.4, 1.2)) +
+  scale_x_log10(breaks = ratio_breaks) +
   scale_colour_manual(values = model_palette) +
-  coord_cartesian(xlim = c(0, 0.5), expand = FALSE) +
-  labs(x = "Predicted RMSE [0, 1]", y = NULL, colour = NULL) +
+  labs(x = "OOS MSE relative to the mean model (log scale)", y = NULL, colour = NULL) +
   theme_bs() +
   theme(legend.position = "bottom",
-        panel.grid.major.y = element_blank())+
-  geom_hline(yintercept = seq(1.5, length(unique(preds$dataset_label)) - 0.5, 1),
-           colour = "grey90", linewidth = 0.3) +
+        panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(colour = "#E0E0E0")) +
   guides(colour = guide_legend(nrow = 1, byrow = TRUE))
+
+# save to file for paper
+ggsave("fig_m1_datasets.pdf", width = 9, height = 10, dpi = 300, path = here("figures"))
+```
+
+## Moderator descriptives
+
+```{r}
+#| label: tbl-moderator-descriptives
+#| tbl-cap: "Moderators of M2 and M3 per dataset: training length in the first fold (median [range] across persons) and mean lag-1 autocorrelation of the items in the training window (mean (SD) across persons)."
+
+features$person |>
+  summarise(n_train = sprintf("%g [%g, %g]", median(n_train_first), min(n_train_first),
+                              max(n_train_first)),
+            rho1 = sprintf("%.2f (%.2f)", mean(rho1_train_mean, na.rm = TRUE),
+                           sd(rho1_train_mean, na.rm = TRUE)),
+            .by = dataset_id) |>
+  left_join(dataset_labels, by = "dataset_id") |>
+  arrange(first_author, year) |>
+  select(dataset, n_train, rho1) |>
+  knitr::kable(col.names = c("Dataset", "Training length", "Autocorrelation"))
+```
+
+## M2 (M1 + training length)
+
+Each moderator is split into a between part, the dataset mean, and a within part, the person's deviation from that mean. We added that due to large dataset-specific differences. The within slope compares persons in the same dataset, the between slope compares datasets. Because the moderators enter log relative MSE linearly, each slope is a constant ratio: the factor by which a model's relative MSE changes per doubling of the training length, regardless of the other predictors. Ratios below 1 mean that the model gains on the mean model as the training window grows.
+
+```{r}
+#| label: tbl-m2-moderators
+#| tbl-cap: "M2: factor by which the OOS MSE relative to the mean model changes per doubling of the training length, within and between datasets. Posterior medians and 95% CrIs."
+
+# exp(step * slope) is the ratio of relative MSE per step of the moderator
+moderator_ratios <- function(fit, steps) {
+  lapply(names(steps), \(moderator) {
+    step <- steps[[moderator]]
+    coef_draws(fit, "b_model", suffix = paste0(":", moderator)) |>
+      mutate(term = moderator, ratio = exp(step * value))
+  }) |>
+    bind_rows() |>
+    summarise(ratio_ci = fmt_ci(ratio), .by = c(model, term)) |>
+    pivot_wider(names_from = term, values_from = ratio_ci) |>
+    mutate(model = factor(model, levels = meta_order, labels = meta_labels)) |>
+    select(model, all_of(names(steps))) |>
+    arrange(model)
+}
+
+moderator_ratios(fit_m2, c(log_n_within = log(2), log_n_between = log(2))) |>
+  knitr::kable(col.names = c("Model", "Training length, within", "Training length, between"))
+```
+
+## M3 (M2 + autocorrelation)
+
+M3 adds the mean lag-1 autocorrelation of the items in the training window, also split into a within- and between-dataset component. Its ratios are per 0.1 higher autocorrelation. The training length ratios are now adjusted for autocorrelation.
+
+```{r}
+#| label: tbl-m3-moderators
+#| tbl-cap: "M3: factor by which the OOS MSE relative to the mean model changes per doubling of the training length and per 0.1 higher mean lag-1 autocorrelation, within and between datasets. Posterior medians and 95% CrIs."
+
+moderator_ratios(fit_m3, c(log_n_within = log(2), log_n_between = log(2),
+                           rho1_within = 0.1, rho1_between = 0.1)) |>
+  knitr::kable(col.names = c("Model", "Training length, within", "Training length, between",
+                             "Autocorrelation, within", "Autocorrelation, between"))
+```
+
+
+# Item-Specific Effects
+
+```{r}
+#| label: item-ratios
+
+item_contrasts <- c(ar = "AR vs. mean", var = "VAR vs. mean")
+
+item_mse <- features$item_error |>
+  filter(model %in% c("mean", names(item_contrasts))) |>
+  select(dataset_id, id, variable, model, mse) |>
+  pivot_wider(names_from = model, values_from = mse, names_prefix = "mse_") |>
+  pivot_longer(c(mse_ar, mse_var), names_to = "model", names_prefix = "mse_",
+               values_to = "mse_model")
+
+# item-level MSE ratio of each model vs. the mean model, per person
+item_ratio <- item_mse |>
+  filter(mse_mean > 0, mse_model > 0) |>
+  mutate(ratio = mse_model / mse_mean)
+
+item_rho1 <- features$item |>
+  summarise(rho1_median = median(rho1_train, na.rm = TRUE), .by = c(dataset_id, variable))
+
+item_summary <- item_ratio |>
+  summarise(ratio = geo_mean(ratio), n_persons = n(), .by = c(dataset_id, variable, model)) |>
+  left_join(item_rho1, by = c("dataset_id", "variable")) |>
+  left_join(dataset_labels, by = "dataset_id") |>
+  mutate(item = paste0(dataset, ": ", variable),
+         contrast = factor(item_contrasts[model], levels = item_contrasts))
+
+stopifnot(!anyNA(item_summary$dataset))
+```
+
+Person-item combinations with zero test-window MSE, which are excluded from the item ratios.
+
+```{r}
+#| label: item-zero-mse
+
+item_mse |>
+  count(model, mean_zero = mse_mean == 0, model_zero = mse_model == 0) |>
+  filter(mean_zero | model_zero)
+```
+
+```{r}
+#| label: fig-item-extremes
+#| fig-cap: "The 10 items with the lowest and highest OOS MSE relative to the mean model, per contrast. Points are geometric means across persons. Colour shows the item's lag-1 autocorrelation in the training window, median across persons."
+#| fig-height: 8
+#| fig-width: 11
+
+n_extreme <- 10
+
+item_extremes <- bind_rows(
+  slice_min(item_summary, ratio, n = n_extreme, with_ties = FALSE, by = contrast),
+  slice_max(item_summary, ratio, n = n_extreme, with_ties = FALSE, by = contrast)
+) |>
+  # an item ranks differently per contrast, so each panel needs its own y levels.
+  # lowest error at the top
+  mutate(item_key = reorder(paste(item, contrast, sep = "__"), desc(ratio)))
+
+ggplot(item_extremes, aes(x = ratio, y = item_key, colour = rho1_median)) +
+  geom_vline(xintercept = 1, colour = "grey50", linetype = "dashed") +
+  # separates the lowest from the highest items
+  geom_hline(yintercept = n_extreme + 0.5, colour = "grey70", linewidth = 0.3) +
+  geom_point(size = 2.5) +
+  scale_y_discrete(labels = \(x) sub("__.*$", "", x)) +
+  scale_x_log10(breaks = c(0.25, 0.5, 1, 2, 4)) +
+  scale_colour_viridis_c(name = "Lag-1 autocorrelation\n(median)") +
+  ggh4x::facet_wrap2(~ contrast, scales = "free_y", axes = "all") +
+  labs(x = "OOS MSE relative to the mean model (log scale)", y = NULL) +
+  theme_bs() +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| label: fig-item-autocorrelation
+#| fig-cap: "Item-level OOS MSE relative to the mean model by the item's lag-1 autocorrelation in the training window. Points are items, as geometric means of the ratio and medians of the autocorrelation across persons."
+#| fig-height: 5
+#| fig-width: 10
+
+ggplot(item_summary, aes(x = rho1_median, y = ratio)) +
+  geom_hline(yintercept = 1, colour = "grey50", linetype = "dashed") +
+  geom_point(alpha = 0.6, size = 1.5, colour = "#2C3E50") +
+  scale_y_log10(breaks = c(0.25, ratio_breaks, 4)) +
+  ggh4x::facet_wrap2(~ contrast, axes = "all") +
+  labs(x = "Lag-1 autocorrelation in the training window (median across persons)",
+       y = "OOS MSE relative to the mean model (log scale)") +
+  theme_bs()
 ```
 

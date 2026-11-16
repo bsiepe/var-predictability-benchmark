@@ -62,9 +62,7 @@ dataset_labels <- dataset_meta |>
                            paste0(dataset, " [", dataset_id, "]"), dataset))
 
 # plotting params
-decomp_models <- c("mean", "ar", "var", "ml_ar", "ml_var")
 component_levels <- c("Autoregression", "Cross-dynamics", "Pooling", "Total")
-path_levels <- c("A: cross-lags,\nthen pooling", "B: pooling,\nthen cross-lags")
 component_palette <- setNames(c(MetBrewer::met.brewer("Hiroshige")[c(9, 2, 7)], "grey45"),
                               component_levels)
 
@@ -72,7 +70,6 @@ component_palette <- setNames(c(MetBrewer::met.brewer("Hiroshige")[c(9, 2, 7)], 
 geo_mean <- function(x) exp(mean(log(x)))
 ratio_breaks <- c(0.5, 0.67, 0.8, 1, 1.25, 1.5, 2)
 
-# 
 
 ```
 
@@ -423,6 +420,151 @@ unique(fit_times$cpu)
 
 # Predictive accuracy across models and datasets
 
+## Overall performance
+
+```{r}
+#| label: tbl-performance
+#| tbl-cap: "Predictive performance per model, median [IQR] across persons. RMSE: OOS root mean squared error pooled over items, in points of the scale range (items rescaled to [0, 1] and multiplied by 100). relMSE: MSE relative to the mean model, out-of-sample and in-sample. In-sample values come from models fitted to all valid observations and are relative to the in-sample mean model. For each model, both relMSE columns use the same persons: those whose relMSE for that model is defined both in-sample and out-of-sample. RMSE is descriptive, models are compared with relMSE."
+
+fmt_median_iqr <- function(x, digits) {
+  sprintf(paste0("%.", digits, "f [%.", digits, "f, %.", digits, "f]"),
+          median(x), quantile(x, 0.25), quantile(x, 0.75))
+}
+
+rmse_summary <- combined |>
+  filter(set == "oos", is.finite(rmse)) |>
+  summarise(rmse = fmt_median_iqr(100 * rmse, 1), .by = model) |>
+  mutate(model = as.character(model))
+
+# paired: a person enters a model's relMSE columns only if that model's relMSE is defined both
+# in-sample and out-of-sample
+rel_mse_pairs <- combined |>
+  filter(set %in% c("in", "oos")) |>
+  mutate(model = as.character(model)) |>
+  select(dataset_id, id, model, set, rel_mse) |>
+  pivot_wider(names_from = set, values_from = rel_mse) |>
+  filter(is.finite(`in`), is.finite(oos))
+
+# the numeric medians come first, before oos and in are overwritten by their formatted versions
+rel_mse_summary <- rel_mse_pairs |>
+  summarise(oos_median = median(oos), is_median = median(`in`),
+            oos = fmt_median_iqr(oos, 2), is = fmt_median_iqr(`in`, 2), n = n(), .by = model)
+
+performance <- tibble(model = model_order) |>
+  left_join(rmse_summary, by = "model") |>
+  left_join(rel_mse_summary, by = "model") |>
+  # the mean model is the reference, so its relMSE is 1 by construction
+  mutate(across(c(oos, is), \(x) if_else(model == "mean", "1 (reference)", x)),
+         across(c(oos_median, is_median), \(x) if_else(model == "mean", NA_real_, x)))
+
+performance |>
+  mutate(model = factor(model, levels = model_order, labels = model_labels)) |>
+  select(model, rmse, oos, is) |>
+  knitr::kable(col.names = c("Model", "RMSE (scale points)", "relMSE, out-of-sample",
+                             "relMSE, in-sample"))
+```
+
+To compare in-sample and out-of-sample performance, we determine for each person the model with the lowest relMSE, once in-sample and once out-of-sample. This uses only persons for whom every model has a defined relMSE, both in-sample and out-of-sample, so that every person can choose among the same models. If two models have exactly the same relMSE, the simpler one counts as best, in the order of the model list (e.g. the mean model over a LASSO VAR that selects no lags). The median relMSE ranges below leave out the mean model, whose relMSE is 1 by construction.
+
+```{r}
+#| label: performance-best-model
+
+best_model <- combined |>
+  filter(set %in% c("in", "oos"), is.finite(rel_mse)) |>
+  mutate(model = as.character(model)) |>
+  filter(n_distinct(model, set) == 2 * length(model_order), .by = c(dataset_id, id)) |>
+  arrange(rel_mse, match(model, model_order)) |>
+  slice_head(n = 1, by = c(dataset_id, id, set)) |>
+  select(dataset_id, id, set, model) |>
+  pivot_wider(names_from = set, values_from = model)
+
+best_share <- best_model |>
+  pivot_longer(c(`in`, oos), names_to = "set", values_to = "model") |>
+  count(set, model) |>
+  complete(set, model = model_order, fill = list(n = 0)) |>
+  mutate(pct = 100 * n / sum(n), .by = set)
+
+pct_best <- function(m, s) best_share$pct[best_share$model == m & best_share$set == s]
+top_best <- function(s) {
+  top <- slice_max(filter(best_share, set == s), pct, n = 1, with_ties = FALSE)
+  sprintf("%s (%.0f%%)", model_labels[match(top$model, model_order)], top$pct)
+}
+
+non_mean <- filter(rel_mse_summary, model != "mean")
+fmt_range <- function(x) sprintf("%.2f to %.2f", min(x), max(x))
+```
+
+The median in-sample relMSE ranged from `r fmt_range(non_mean$is_median)` across models, and the median out-of-sample relMSE from `r fmt_range(non_mean$oos_median)`. For `r nrow(best_model)` of `r nrow(distinct(combined, dataset_id, id))` persons, every model had a defined relMSE both in-sample and out-of-sample. Among them, the model with the lowest in-sample relMSE also had the lowest out-of-sample relMSE for `r sprintf("%.1f", 100 * mean(best_model$"in" == best_model$oos))`% of persons. The most frequent best model was `r top_best("in")` in-sample and `r top_best("oos")` out-of-sample. VAR was the best model for `r sprintf("%.1f", pct_best("var", "in"))`% of persons in-sample and for `r sprintf("%.1f", pct_best("var", "oos"))`% out-of-sample.
+
+
+
+```{r}
+#| label: tbl-performance-latex
+# the paper version, with the model names and groups of the model overview table.
+# needs booktabs and \usepackage[table]{xcolor}
+paper_model_names <- c(mean = "Person mean", naive = "Naïve persistence", trend = "Linear trend",
+                       ri = "Random intercept", ar = "Idiographic AR(1)",
+                       var = "Idiographic VAR(1)", lasso_var = "Regularized idiographic VAR(1)",
+                       ml_ar = "Multilevel AR(1)", ml_var = "Multilevel VAR(1)")
+model_groups <- list("Models without dynamics" = c("mean", "ri", "trend"),
+                     "Naïve baseline" = "naive",
+                     "Dynamic models" = c("ar", "ml_ar", "var", "lasso_var", "ml_var"))
+stopifnot(setequal(names(paper_model_names), model_order),
+          setequal(unlist(model_groups), model_order))
+
+# blue below 1, red above 1 (the RdBu ends of the dominance figure). the tint grows with the
+# distance of the median from 1 on the log scale, up to a factor of 1.5
+cell_shade <- function(median_value) {
+  vapply(median_value, function(m) {
+    if (is.na(m)) return("")
+    strength <- min(abs(log(m)) / log(1.5), 1)
+    sprintf("\\cellcolor{%s!%d}", if (m < 1) "relmseLower" else "relmseHigher",
+            round(5 + 35 * strength))
+  }, character(1))
+}
+
+performance_rows <- unlist(lapply(seq_along(model_groups), function(g) {
+  group <- performance[match(model_groups[[g]], performance$model), ]
+  c(if (g > 1) "\\addlinespace[0.3em]",
+    paste0("\\multicolumn{4}{@{}l}{\\textit{", names(model_groups)[g], "}} \\\\"),
+    sprintf("\\quad %s & %s & %s%s & %s%s \\\\", paper_model_names[group$model], group$rmse,
+            cell_shade(group$oos_median), group$oos, cell_shade(group$is_median), group$is))
+}))
+
+performance_tex <- c(
+  "\\begin{table}[ht]",
+  "\\centering",
+  "\\caption{Predictive Performance of All Models}",
+  "\\label{tab:performance}",
+  "\\small",
+  "\\definecolor{relmseLower}{HTML}{2166AC}",
+  "\\definecolor{relmseHigher}{HTML}{B2182B}",
+  # no @{} on the right: \cellcolor fills the column padding, so the rules must include it
+  "\\begin{tabular}{@{}lrrr}",
+  "\\toprule",
+  " & RMSE & \\multicolumn{2}{c}{relMSE} \\\\",
+  "\\cmidrule(l){3-4}",
+  "Model & (scale points) & Out-of-sample & In-sample \\\\",
+  "\\midrule",
+  performance_rows,
+  "\\bottomrule",
+  "\\end{tabular}",
+  "",
+  "\\vspace{0.4em}",
+  paste("\\noindent \\raggedright \\textit{Note.} Median [IQR] across persons. RMSE:",
+        "out-of-sample root mean squared error, pooled over items, in points of the scale range",
+        "(items rescaled to [0, 100]). relMSE: mean squared error relative to the person mean",
+        "model. In-sample values are based on models fitted to all valid observations, relative",
+        "to the in-sample person mean. For each model, both relMSE columns are based on the same",
+        "individuals whose relMSE is defined both in-sample and out-of-sample",
+        sprintf("(%d to %d persons, depending on the model).",
+                min(rel_mse_summary$n), max(rel_mse_summary$n)),
+        "Shading: blue for a median relMSE below 1, red above 1, darker for larger deviations."),
+  "\\end{table}"
+)
+writeLines(performance_tex, here("output", "paper", "tbl_performance.tex"))
+```
+
 ## Relative MSE across datasets
 
 ```{r}
@@ -561,6 +703,27 @@ ggplot(m1_forest, aes(x = rel_mse, y = dataset, colour = model)) +
 ggsave("fig_m1_datasets.pdf", width = 9, height = 10, dpi = 300, path = here("figures"))
 ```
 
+```{r}
+#| label: tbl-m1-variance
+#| tbl-cap: "M1: standard deviations of the random intercepts of log relative MSE (posterior median and 95% CrI), and the corresponding factor exp(SD) on the relative MSE scale. Dataset × model: how much a model's dataset-specific effect varies beyond the dataset's overall level. Whether the model ranking changes between datasets also depends on the gaps between models (see the dataset-level figure)."
+
+re_labels <- c("dataset_id" = "Dataset", "dataset_id:model" = "Dataset × model",
+               "unique_id" = "Person")
+
+re_sd <- posterior::as_draws_df(fit_m1, variable = "^sd_", regex = TRUE) |>
+  as_tibble() |>
+  select(starts_with("sd_")) |>
+  pivot_longer(everything(), names_to = "term", values_to = "sd") |>
+  mutate(term = sub("^sd_(.*)__Intercept$", "\\1", term))
+stopifnot(setequal(unique(re_sd$term), names(re_labels)))
+
+re_sd |>
+  summarise(sd_ci = fmt_ci(sd), factor_ci = fmt_ci(exp(sd)), .by = term) |>
+  mutate(term = factor(re_labels[term], levels = re_labels)) |>
+  arrange(term) |>
+  knitr::kable(col.names = c("Random intercept", "SD (log scale)", "Factor exp(SD)"))
+```
+
 ## Time series gallery
 
 We now select a few persons with good, average, and poor predictions by mlVAR relative to the mean model, and show one typical item per person. We also show the first OOS origin as a dashed line. 
@@ -670,10 +833,54 @@ This strong correlation suggests that the absolute performance of mlVAR is large
 
 ## Item-specific effects
 
+We first look at the raw prediction error per item. For every item, we take the median OOS RMSE across persons, in points of the scale range (items rescaled to [0, 1] and multiplied by 100), for the mean model, AR and VAR. The figure shows the 10 items with the lowest and the 10 with the highest median RMSE of the mean model. As the mean model's error is essentially the item's within-person variability, this ranking mainly reflects how much an item varies. The distance between the three points of an item shows how much the dynamic models change the raw error.
+
+```{r}
+#| label: fig-item-rmse
+#| fig-cap: "Items with the lowest and highest median OOS RMSE of the mean model, with the RMSE of AR and VAR for comparison."
+#| fig-height: 7
+#| fig-width: 9
+
+n_extreme <- 10
+rmse_models <- c("mean", "ar", "var")
+
+item_rmse <- features$item_error |>
+  filter(model %in% rmse_models) |>
+  summarise(rmse = 100 * median(rmse), .by = c(dataset_id, variable, model)) |>
+  left_join(dataset_labels, by = "dataset_id") |>
+  mutate(item = paste0(dataset, ": ", variable))
+
+rmse_rank <- item_rmse |>
+  filter(model == "mean") |>
+  arrange(rmse)
+shown_items <- c(head(rmse_rank$item, n_extreme), tail(rmse_rank$item, n_extreme))
+
+item_rmse_extremes <- item_rmse |>
+  filter(item %in% shown_items) |>
+  # lowest error at the top
+  mutate(item = factor(item, levels = rev(shown_items)),
+         model = factor(model, levels = rmse_models,
+                        labels = model_labels[match(rmse_models, model_order)]))
+
+ggplot(item_rmse_extremes, aes(x = rmse, y = item, colour = model, shape = model)) +
+  # separates the lowest from the highest items
+  geom_hline(yintercept = n_extreme + 0.5, colour = "grey70", linewidth = 0.3) +
+  geom_point(size = 2.5, alpha = 0.85) +
+  scale_colour_manual(values = model_palette) +
+  # AR and VAR have similar colours in model_palette
+  scale_shape_manual(values = c(Mean = 16, AR = 17, VAR = 15)) +
+  labs(x = "OOS RMSE (scale points), median across persons", y = NULL, colour = NULL,
+       shape = NULL) +
+  theme_bs() +
+  theme(legend.position = "bottom")
+```
+
 ```{r}
 #| label: item-ratios
 
 item_contrasts <- c(ar = "AR vs. mean", var = "VAR vs. mean")
+# as zero_tol in relative_mse(): an exact fit leaves floating-point noise instead of 0
+zero_tol <- 1e-10
 
 item_mse <- features$item_error |>
   filter(model %in% c("mean", names(item_contrasts))) |>
@@ -684,7 +891,7 @@ item_mse <- features$item_error |>
 
 # item-level MSE ratio of each model vs. the mean model, per person
 item_ratio <- item_mse |>
-  filter(mse_mean > 0, mse_model > 0) |>
+  filter(mse_mean >= zero_tol, mse_model >= zero_tol) |>
   mutate(ratio = mse_model / mse_mean)
 
 item_rho1 <- features$item |>
@@ -700,15 +907,18 @@ item_summary <- item_ratio |>
 stopifnot(!anyNA(item_summary$dataset))
 ```
 
-Person-item combinations with zero test-window MSE, which are excluded from the item ratios.
+An item-level ratio is undefined if the mean model or the compared model predicts all test values of an item exactly, for example when the item is constant in the test window. As for the person-level relMSE, an MSE below 10^-10^ counts as zero. These person-item combinations are left out of the item ratios.
 
 ```{r}
 #| label: item-zero-mse
 
-item_mse |>
-  count(model, mean_zero = mse_mean == 0, model_zero = mse_model == 0) |>
-  filter(mean_zero | model_zero)
+item_cells <- distinct(item_mse, dataset_id, id, variable, mse_mean)
+zero_model <- item_mse |>
+  summarise(n = sum(mse_model < zero_tol, na.rm = TRUE), .by = model)
+n_zero <- function(m) zero_model$n[zero_model$model == m]
 ```
+
+Of the `r nrow(item_cells)` person-item combinations, the test-window MSE was zero in `r sum(item_cells$mse_mean < zero_tol, na.rm = TRUE)` for the mean model, in `r n_zero("ar")` for AR and in `r n_zero("var")` for VAR.
 
 ```{r}
 #| label: fig-item-extremes
@@ -965,6 +1175,46 @@ moderator_ratios(fit_m3, c(log_n_within = log(2), log_n_between = log(2),
                              "Autocorrelation, within", "Autocorrelation, between"))
 ```
 
+## Moderation of the steps between models
+
+The slopes above describe each model's error relative to the mean model. The figures below compare models with each other, for example AR with VAR. To give these comparisons a model-based counterpart, we take the difference between the slopes of two models within each posterior draw. Exponentiated, it is the factor by which the error ratio of the model after the arrow to the model before it changes per doubling of the training length (from M2) or per 0.1 higher lag-1 autocorrelation (from M3). A factor below 1 means that the model after the arrow gains relative to the model before it as the moderator increases. Within-dataset factors compare persons in the same dataset, between-dataset factors compare datasets. Within a dataset, the number of items is constant, so the within-dataset factor for training length also describes the trend in the figure below, whose x-axis is the number of training observations per VAR coefficient. The training length factors come from M2, without adjustment for autocorrelation.
+
+```{r}
+#| label: tbl-moderator-contrasts
+#| tbl-cap: "Change in the OOS error ratio between two models per doubling of the training length (M2) and per 0.1 higher lag-1 autocorrelation (M3). Posterior medians and 95% CrIs."
+
+moderator_steps <- tribble(
+  ~type, ~from, ~to,
+  "Cross-lags", "ar", "var",
+  "Cross-lags", "ml_ar", "ml_var",
+  "Cross-lags and regularisation", "ar", "lasso_var",
+  "Regularisation", "var", "lasso_var",
+  "Pooling", "ar", "ml_ar",
+  "Pooling", "var", "ml_var"
+) |>
+  mutate(step = paste(model_labels[match(from, model_order)], "→",
+                      model_labels[match(to, model_order)]))
+
+# exp(step size * (slope of the model after the arrow - slope of the model before it)) per draw
+step_slopes <- function(fit, moderator, step_size) {
+  slopes <- coef_draws(fit, "b_model", suffix = paste0(":", moderator)) |>
+    pivot_wider(names_from = model, values_from = value)
+  vapply(seq_len(nrow(moderator_steps)), function(i) {
+    fmt_ci(exp(step_size * (slopes[[moderator_steps$to[i]]] - slopes[[moderator_steps$from[i]]])))
+  }, character(1))
+}
+
+moderator_steps |>
+  mutate(n_within = step_slopes(fit_m2, "log_n_within", log(2)),
+         n_between = step_slopes(fit_m2, "log_n_between", log(2)),
+         rho_within = step_slopes(fit_m3, "rho1_within", 0.1),
+         rho_between = step_slopes(fit_m3, "rho1_between", 0.1)) |>
+  select(type, step, n_within, n_between, rho_within, rho_between) |>
+  knitr::kable(col.names = c("Type", "Step", "Training length, within",
+                             "Training length, between", "Autocorrelation, within",
+                             "Autocorrelation, between"))
+```
+
 ## Value of cross-dynamics and regularisation by data per parameter
 
 ```{r}
@@ -1132,5 +1382,35 @@ ggplot(pooling, aes(x = n_train_first, y = ratio)) +
   labs(x = "Training series length (first fold, log scale)",
        y = "OOS MSE ratio (log scale, < 1 = pooling better)") +
   theme_bs()
+```
+
+# Sensitivity analyses
+
+S1 replaces the Student-t likelihood of M1 with a lognormal likelihood on relative MSE. S4 models the log geometric mean of the raw MSE across items instead of relative MSE and includes the mean model, so its estimates are expressed relative to the mean model's estimate.
+
+```{r}
+#| label: tbl-sensitivity
+#| tbl-cap: "Population-level OOS MSE relative to the mean model (posterior median and 95% CrI) in the main model M1 and the sensitivity models S1 (lognormal likelihood) and S4 (raw-scale MSE, ratio to the mean model's estimate)."
+
+# exp(b) is the population-level relative MSE. a model that includes the mean model (S4) is
+# expressed relative to it within each draw
+relative_to_mean <- function(fit) {
+  draws <- coef_draws(fit, "b_model")
+  if ("mean" %in% draws$model) {
+    draws <- draws |>
+      mutate(value = value - value[model == "mean"], .by = .draw) |>
+      filter(model != "mean")
+  }
+  summarise(draws, estimate = fmt_ci(exp(value)), .by = model)
+}
+
+list(m1 = fit_m1, s1 = fit_s1, s4 = fit_s4) |>
+  lapply(relative_to_mean) |>
+  bind_rows(.id = "fit") |>
+  pivot_wider(names_from = fit, values_from = estimate) |>
+  mutate(model = factor(model, levels = meta_order, labels = meta_labels)) |>
+  arrange(model) |>
+  select(model, m1, s1, s4) |>
+  knitr::kable(col.names = c("Model", "M1 (main)", "S1: lognormal", "S4: raw-scale MSE"))
 ```
 

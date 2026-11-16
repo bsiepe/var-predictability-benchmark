@@ -58,7 +58,51 @@ read_fit <- function(path, family) {
   fit
 }
 
+# the response as the model sees it, e.g. log(rel_mse) for the Student-t models
+model_y <- function(fit) brms::standata(fit)$Y
+
+# coord_cartesian zooms without dropping draws, so the densities still use all of them.
+# widen: margin around the observed range, as a multiple of that range
+ppc_density <- function(y, yrep, group = NULL, widen = 0.25) {
+  limits <- range(y) + c(-1, 1) * widen * diff(range(y))
+  p <- if (is.null(group)) {
+    bayesplot::ppc_dens_overlay(y, yrep)
+  } else {
+    bayesplot::ppc_dens_overlay_grouped(y, yrep, group = group)
+  }
+  p + ggplot2::coord_cartesian(xlim = limits)
+}
+
+q05 <- function(x) stats::quantile(x, 0.05)
+q95 <- function(x) stats::quantile(x, 0.95)
+
+# log_y: compare on the log scale, for the lognormal S1 whose response is rel_mse itself
+prior_check <- function(fit, log_y = FALSE) {
+  y <- model_y(fit)
+  yrep <- brms::posterior_predict(fit, ndraws = 50)
+  if (log_y) {
+    y <- log(y)
+    yrep <- log(yrep)
+  }
+  ppc_density(y, yrep, widen = 1)
+}
+
+posterior_checks <- function(fit, log_y = FALSE, group = NULL) {
+  y <- model_y(fit)
+  yrep <- brms::posterior_predict(fit, ndraws = 500)
+  if (log_y) {
+    y <- log(y)
+    yrep <- log(yrep)
+  }
+  print(ppc_density(y, yrep[1:50, ], group = group))
+  print(bayesplot::ppc_stat_2d(y, yrep, stat = c("q05", "q95")))
+  invisible(NULL)
+}
 ```
+
+All models are fitted with `refresh = 0` and `silent = 2`, so that the rendered report does not contain Stan's compilation and sampling messages.
+
+The predictive checks compare the observed response with responses simulated from the model. With a Student-t likelihood, a few simulated values are extreme, and a density plot would stretch its x-axis to include them, so that the bulk of the distribution is no longer visible. The density plots are therefore zoomed to the observed range plus a margin, without dropping any simulated values. As a density plot cannot show well whether a model reproduces the spread and the tails, each posterior check is complemented by a plot of the 5% and 95% quantiles of the simulated data against the observed ones. These quantiles are not affected by single extreme values. The lognormal model S1 is checked on the log scale as well, so that its checks are comparable to those of the Student-t models.
 
 
 We then need to create unique identifiers for each individual, ensuring that the same id number is not mistaken as the same person across different datasets. We do this by combining the dataset name and the person id.
@@ -120,7 +164,9 @@ if (refit_models || !file.exists(model_path)) {
     cores = 4,
     iter = 3000,
     warmup = 1000,
-    seed = seed
+    seed = seed,
+    refresh = 0,
+    silent = 2
   )
 
   saveRDS(fit_relmse_m1, model_path)
@@ -143,14 +189,14 @@ brms::prior_summary(fit_relmse_m1) |>
 model_path <- here::here("output", "analysis", "fit_relmse_m1_prior.rds")
 
 if (refit_models || !file.exists(model_path)) {
-  fit_relmse_m1_prior <- update(fit_relmse_m1, sample_prior = "only", seed = seed)
+  fit_relmse_m1_prior <- update(fit_relmse_m1, sample_prior = "only", seed = seed,
+    refresh = 0, silent = 2)
   saveRDS(fit_relmse_m1_prior, model_path)
 } else {
   fit_relmse_m1_prior <- read_fit(model_path, "student")
 }
 
-# the response is already log(rel_mse), so no log axis
-bayesplot::pp_check(fit_relmse_m1_prior, type = "dens_overlay", ndraws = 50)
+prior_check(fit_relmse_m1_prior)
 ```
 
 Here's the summary of the model:
@@ -166,10 +212,11 @@ Here's a traceplot of some main parameters:
 bayesplot::mcmc_trace(fit_relmse_m1, regex_pars = "^b_")
 ```
 
-Here's a posterior predictive check of the model:
+Here are the posterior predictive checks of the model, with the densities separately per benchmark model:
+
 ```{r}
 #| label: ppcheck-relmse-m1
-bayesplot::pp_check(fit_relmse_m1, type = "dens_overlay_grouped", group = "model", ndraws = 50)
+posterior_checks(fit_relmse_m1, group = fit_relmse_m1$data$model)
 ```
 
 
@@ -207,7 +254,9 @@ if (refit_models || !file.exists(model_path)) {
     cores = 4,
     iter = 3000,
     warmup = 1000,
-    seed = seed
+    seed = seed,
+    refresh = 0,
+    silent = 2
   )
 
   saveRDS(fit_relmse_m2, model_path)
@@ -221,18 +270,26 @@ if (refit_models || !file.exists(model_path)) {
 model_path <- here::here("output", "analysis", "fit_relmse_m2_prior.rds")
 
 if (refit_models || !file.exists(model_path)) {
-  fit_relmse_m2_prior <- update(fit_relmse_m2, sample_prior = "only", seed = seed)
+  fit_relmse_m2_prior <- update(fit_relmse_m2, sample_prior = "only", seed = seed,
+    refresh = 0, silent = 2)
   saveRDS(fit_relmse_m2_prior, model_path)
 } else {
   fit_relmse_m2_prior <- read_fit(model_path, "student")
 }
 
-bayesplot::pp_check(fit_relmse_m2_prior, type = "dens_overlay", ndraws = 50)
+prior_check(fit_relmse_m2_prior)
 ```
 
 ```{r}
 #| label: summary-relmse-m2
 parameters::model_parameters(fit_relmse_m2, test = "pd")
+```
+
+Posterior predictive checks of M2:
+
+```{r}
+#| label: ppcheck-relmse-m2
+posterior_checks(fit_relmse_m2)
 ```
 
 
@@ -269,7 +326,9 @@ if (refit_models || !file.exists(model_path)) {
     cores = 4,
     iter = 3000,
     warmup = 1000,
-    seed = seed
+    seed = seed,
+    refresh = 0,
+    silent = 2
   )
 
   saveRDS(fit_relmse_m3, model_path)
@@ -283,18 +342,26 @@ if (refit_models || !file.exists(model_path)) {
 model_path <- here::here("output", "analysis", "fit_relmse_m3_prior.rds")
 
 if (refit_models || !file.exists(model_path)) {
-  fit_relmse_m3_prior <- update(fit_relmse_m3, sample_prior = "only", seed = seed)
+  fit_relmse_m3_prior <- update(fit_relmse_m3, sample_prior = "only", seed = seed,
+    refresh = 0, silent = 2)
   saveRDS(fit_relmse_m3_prior, model_path)
 } else {
   fit_relmse_m3_prior <- read_fit(model_path, "student")
 }
 
-bayesplot::pp_check(fit_relmse_m3_prior, type = "dens_overlay", ndraws = 50)
+prior_check(fit_relmse_m3_prior)
 ```
 
 ```{r}
 #| label: summary-relmse-m3
 parameters::model_parameters(fit_relmse_m3, test = "pd")
+```
+
+Posterior predictive checks of M3:
+
+```{r}
+#| label: ppcheck-relmse-m3
+posterior_checks(fit_relmse_m3)
 ```
 
 # Sensitivity Analyses
@@ -316,7 +383,9 @@ if (refit_models || !file.exists(model_path)) {
     cores = 4,
     iter = 3000,
     warmup = 1000,
-    seed = seed
+    seed = seed,
+    refresh = 0,
+    silent = 2
   )
 
   saveRDS(fit_relmse_s1, model_path)
@@ -330,19 +399,26 @@ if (refit_models || !file.exists(model_path)) {
 model_path <- here::here("output", "analysis", "fit_relmse_s1_prior.rds")
 
 if (refit_models || !file.exists(model_path)) {
-  fit_relmse_s1_prior <- update(fit_relmse_s1, sample_prior = "only", seed = seed)
+  fit_relmse_s1_prior <- update(fit_relmse_s1, sample_prior = "only", seed = seed,
+    refresh = 0, silent = 2)
   saveRDS(fit_relmse_s1_prior, model_path)
 } else {
   fit_relmse_s1_prior <- read_fit(model_path, "lognormal")
 }
 
-bayesplot::pp_check(fit_relmse_s1_prior, type = "dens_overlay", ndraws = 50) +
-  ggplot2::scale_x_log10()
+prior_check(fit_relmse_s1_prior, log_y = TRUE)
 ```
 
 ```{r}
 #| label: summary-relmse-s1
 parameters::model_parameters(fit_relmse_s1, test = "pd")
+```
+
+Posterior predictive checks of S1, on the log scale. Compared with the checks of M1, they show whether the lognormal likelihood reproduces the spread and the tails of log relative MSE as well as the Student-t likelihood does.
+
+```{r}
+#| label: ppcheck-relmse-s1
+posterior_checks(fit_relmse_s1, log_y = TRUE)
 ```
 
 ## Raw-Scale MSE (S4)
@@ -376,7 +452,9 @@ if (refit_models || !file.exists(model_path)) {
     cores = 4,
     iter = 6000,
     warmup = 2000,
-    seed = seed
+    seed = seed,
+    refresh = 0,
+    silent = 2
   )
 
   saveRDS(fit_relmse_s4, model_path)
@@ -390,19 +468,26 @@ if (refit_models || !file.exists(model_path)) {
 model_path <- here::here("output", "analysis", "fit_relmse_s4_prior.rds")
 
 if (refit_models || !file.exists(model_path)) {
-  fit_relmse_s4_prior <- update(fit_relmse_s4, sample_prior = "only", seed = seed)
+  fit_relmse_s4_prior <- update(fit_relmse_s4, sample_prior = "only", seed = seed,
+    refresh = 0, silent = 2)
   saveRDS(fit_relmse_s4_prior, model_path)
 } else {
   fit_relmse_s4_prior <- read_fit(model_path, "student")
 }
 
-# the response is already log(gm_mse), so no log axis
-bayesplot::pp_check(fit_relmse_s4_prior, type = "dens_overlay", ndraws = 50)
+prior_check(fit_relmse_s4_prior)
 ```
 
 ```{r}
 #| label: summary-relmse-s4
 parameters::model_parameters(fit_relmse_s4, test = "pd")
+```
+
+Posterior predictive checks of S4:
+
+```{r}
+#| label: ppcheck-relmse-s4
+posterior_checks(fit_relmse_s4)
 ```
 
 # Convergence Diagnostics

@@ -671,59 +671,78 @@ This strong correlation suggests that the absolute performance of mlVAR is large
 ## Item-specific effects
 
 ```{r}
-#| label: setup-meta
+#| label: item-ratios
 
-# fitted in 04_meta_regression.qmd
-fit_m1 <- readRDS(here("output", "analysis", "fit_relmse_m1.rds"))
-fit_m2 <- readRDS(here("output", "analysis", "fit_relmse_m2.rds"))
-fit_m3 <- readRDS(here("output", "analysis", "fit_relmse_m3.rds"))
-fit_s1 <- readRDS(here("output", "analysis", "fit_relmse_s1.rds"))
-fit_s4 <- readRDS(here("output", "analysis", "fit_relmse_s4.rds"))
+item_contrasts <- c(ar = "AR vs. mean", var = "VAR vs. mean")
 
-meta_order <- model_order[model_order != "mean"]
-meta_labels <- model_labels[model_order != "mean"]
+item_mse <- features$item_error |>
+  filter(model %in% c("mean", names(item_contrasts))) |>
+  select(dataset_id, id, variable, model, mse) |>
+  pivot_wider(names_from = model, values_from = mse, names_prefix = "mse_") |>
+  pivot_longer(c(mse_ar, mse_var), names_to = "model", names_prefix = "mse_",
+               values_to = "mse_model")
 
-# one population-level coefficient per model and draw. "b_model" gives the location of log
-# relative MSE and "b_sigma_model" the residual scale on the log link. a suffix such as
-# ":log_n_within" selects the slope of that moderator instead
-coef_draws <- function(fit, prefix, suffix = "") {
-  posterior::as_draws_df(fit, variable = paste0("^", prefix, "[a-z_]+", suffix, "$"),
-                         regex = TRUE) |>
-    as_tibble() |>
-    pivot_longer(starts_with(prefix), names_to = "model",
-                 names_pattern = paste0(prefix, "([a-z_]+)", suffix), values_to = "value") |>
-    select(.draw, model, value)
-}
+# item-level MSE ratio of each model vs. the mean model, per person
+item_ratio <- item_mse |>
+  filter(mse_mean > 0, mse_model > 0) |>
+  mutate(ratio = mse_model / mse_mean)
 
-# posterior median and 95% equal-tailed interval
-fmt_ci <- function(x) {
-  sprintf("%.2f [%.2f, %.2f]", median(x), quantile(x, 0.025), quantile(x, 0.975))
-}
+item_rho1 <- features$item |>
+  summarise(rho1_median = median(rho1_train, na.rm = TRUE), .by = c(dataset_id, variable))
+
+item_summary <- item_ratio |>
+  summarise(ratio = geo_mean(ratio), n_persons = n(), .by = c(dataset_id, variable, model)) |>
+  left_join(item_rho1, by = c("dataset_id", "variable")) |>
+  left_join(dataset_labels, by = "dataset_id") |>
+  mutate(item = paste0(dataset, ": ", variable),
+         contrast = factor(item_contrasts[model], levels = item_contrasts))
+
+stopifnot(!anyNA(item_summary$dataset))
 ```
 
-## M1 (Model using only model as predictor)
-
-We estimated a student-t location scale meta-model with only the model as a predictor. We can now use the outputs of this model to create a forest plot-like visualization of the predictive accuracy of each model across datasets.
+Person-item combinations with zero test-window MSE, which are excluded from the item ratios.
 
 ```{r}
-#| label: tbl-m1
-#| tbl-cap: "M1: population-level OOS MSE relative to the mean model (posterior median and 95% CrI), the posterior probability that it is below 1, and the residual scale of log relative MSE across persons."
+#| label: item-zero-mse
 
-m1_location <- coef_draws(fit_m1, "b_model") |>
-  mutate(rel_mse = exp(value)) |>
-  summarise(rel_mse_ci = fmt_ci(rel_mse), p_below = mean(rel_mse < 1), .by = model)
-
-m1_sigma <- coef_draws(fit_m1, "b_sigma_model") |>
-  mutate(sigma = exp(value)) |>
-  summarise(sigma_ci = fmt_ci(sigma), .by = model)
-
-m1_location |>
-  left_join(m1_sigma, by = "model") |>
-  mutate(model = factor(model, levels = meta_order, labels = meta_labels)) |>
-  arrange(model) |>
-  knitr::kable(digits = 2, col.names = c("Model", "Relative MSE", "P(< 1)",
-                                         "Residual scale (log)"))
+item_mse |>
+  count(model, mean_zero = mse_mean == 0, model_zero = mse_model == 0) |>
+  filter(mean_zero | model_zero)
 ```
+
+```{r}
+#| label: fig-item-extremes
+#| fig-cap: "The 10 items with the lowest and highest OOS MSE relative to the mean model, per contrast. Points are geometric means across persons. Colour shows the item's lag-1 autocorrelation in the training window, median across persons."
+#| fig-height: 8
+#| fig-width: 11
+
+n_extreme <- 10
+
+item_extremes <- bind_rows(
+  slice_min(item_summary, ratio, n = n_extreme, with_ties = FALSE, by = contrast),
+  slice_max(item_summary, ratio, n = n_extreme, with_ties = FALSE, by = contrast)
+) |>
+  # an item ranks differently per contrast, so each panel needs its own y levels.
+  # lowest error at the top
+  mutate(item_key = reorder(paste(item, contrast, sep = "__"), desc(ratio)))
+
+ggplot(item_extremes, aes(x = ratio, y = item_key, colour = rho1_median)) +
+  geom_vline(xintercept = 1, colour = "grey50", linetype = "dashed") +
+  # separates the lowest from the highest items
+  geom_hline(yintercept = n_extreme + 0.5, colour = "grey70", linewidth = 0.3) +
+  geom_point(size = 2.5) +
+  scale_y_discrete(labels = \(x) sub("__.*$", "", x)) +
+  scale_x_log10(breaks = c(0.25, 0.5, 1, 2, 4)) +
+  scale_colour_viridis_c(name = "Lag-1 autocorrelation\n(median)") +
+  ggh4x::facet_wrap2(~ contrast, scales = "free_y", axes = "all") +
+  labs(x = "OOS MSE relative to the mean model (log scale)", y = NULL) +
+  theme_bs() +
+  theme(legend.position = "bottom")
+```
+
+# Decomposition of predictive gains
+
+## Model-based steps (M1)
 
 ```{r}
 #| label: tbl-m1-steps
@@ -790,17 +809,75 @@ ggplot(m1_forest, aes(x = rel_mse, y = dataset, colour = model)) +
   ggdist::stat_pointinterval(position = position_dodge(width = 0.7), .width = c(0.8, 0.95),
                              point_size = 1.5, interval_size_range = c(0.4, 1.2)) +
   scale_x_log10(breaks = ratio_breaks) +
-  scale_colour_manual(values = model_palette) +
-  labs(x = "OOS MSE relative to the mean model (log scale)", y = NULL, colour = NULL) +
-  theme_bs() +
-  theme(legend.position = "bottom",
-        panel.grid.major.y = element_blank(),
-        panel.grid.major.x = element_line(colour = "#E0E0E0")) +
-  guides(colour = guide_legend(nrow = 1, byrow = TRUE))
-
-# save to file for paper
-ggsave("fig_m1_datasets.pdf", width = 9, height = 10, dpi = 300, path = here("figures"))
+  ggh4x::facet_grid2(path ~ component, axes = "all", remove_labels = "y") +
+  coord_cartesian(xlim = x_lim, expand = FALSE) +
+  labs(x = "OOS MSE ratio after vs. before the step (log scale, < 1 = better)", y = NULL) +
+  theme_bs(base_size = 11) +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(colour = "#E0E0E0"))
 ```
+
+## Model dominance
+
+```{r}
+#| label: fig-dominance
+#| fig-cap: "Pairwise model dominance: Proportion of persons where the column model has lower OOS relative MSE than the row model. The Mean row is the share of persons for whom a model beats the mean model. Without a true difference, about 0.5 is expected from noise alone."
+#| fig-height: 5.5
+
+model_pairs <- expand.grid(model_a = model_labels, model_b = model_labels,
+                           stringsAsFactors = FALSE)
+
+# comparing rel_mse within a person compares geometric-mean MSE over items
+dat_wide <- combined |>
+  filter(set == "oos", is.finite(rel_mse)) |>
+  mutate(model = factor(model, levels = model_order, labels = model_labels)) |>
+  select(dataset_id, id, model, rel_mse) |>
+  pivot_wider(names_from = model, values_from = rel_mse)
+
+dominance <- model_pairs |>
+  rowwise() |>
+  mutate(
+    prop = if_else(model_a == model_b, NA_real_,
+                   mean(dat_wide[[model_a]] < dat_wide[[model_b]], na.rm = TRUE))
+  ) |>
+  ungroup() |>
+  mutate(
+    model_a = factor(model_a, levels = model_labels),
+    model_b = factor(model_b, levels = rev(model_labels))
+  )
+
+dominance_text_size <- 14 * 0.9
+
+ggplot(dominance, aes(x = model_a, y = model_b, fill = prop)) +
+  geom_tile() +
+  geom_text(aes(label = round(prop, 2)), size = dominance_text_size / ggplot2::.pt,
+            colour = "grey30", family = "news") +
+  scale_fill_distiller(palette = "RdBu", limits = c(0, 1), direction = 1,
+                       na.value = "grey95",
+                       name = "P(column model better)") +
+  labs(x = NULL, y = NULL) +
+  scale_x_discrete(position = "top") +
+  theme_bs() +
+  guides(fill = guide_colorbar(
+    barwidth = grid::unit(8, "cm"),
+    title.position = "left"
+  )) +
+  theme(
+    legend.position = "bottom",
+    legend.justification = "center",
+    legend.title = element_text(
+      family = "news", size = dominance_text_size, colour = "grey30",
+      margin = margin(r = 16)
+    ),
+    legend.text = element_text(
+      family = "news", size = dominance_text_size, colour = "grey30",
+      margin = margin(t = 4)
+    )
+  )
+
+```
+
+# Moderators
 
 ## Moderator descriptives
 

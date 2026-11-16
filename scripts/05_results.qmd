@@ -744,77 +744,104 @@ ggplot(item_extremes, aes(x = ratio, y = item_key, colour = rho1_median)) +
 
 ## Model-based steps (M1)
 
+Within each dataset, ratios are geometric means across persons with defined relMSE for all five models. “All datasets” gives each dataset equal weight.
+
+
 ```{r}
 #| label: tbl-m1-steps
-#| tbl-cap: "M1: change in OOS MSE for each step of the complexity ladder, as the ratio of the population-level relative MSE after vs. before the step (posterior median and 95% CrI), and the posterior probability that the step lowers the error."
+#| tbl-cap: "Change in OOS MSE for each step of the complexity ladder. Error ratio: population-level relative MSE after vs. before the step in M1 (posterior median and 95% CrI), with the posterior probability that the step lowers the error. Improved: share of persons with lower OOS relative MSE after the step, among the n persons with a defined relative MSE for both models. The error ratio uses all persons in M1, the share only the paired persons."
 
-step_levels <- c("Mean → AR", "AR → VAR", "VAR → mlVAR", "AR → mlAR", "mlAR → mlVAR",
-                 "Mean → mlVAR", "AR → LASSO VAR", "VAR → LASSO VAR")
+step_types <- c("Reference", "Autoregression", "Cross-lags", "Pooling", "Regularisation",
+                "Trend", "Total")
+steps <- tribble(
+  ~type, ~from, ~to,
+  "Reference", "mean", "naive",
+  "Autoregression", "mean", "ar",
+  "Autoregression", "ri", "ml_ar",
+  "Cross-lags", "ar", "var",
+  "Cross-lags", "ml_ar", "ml_var",
+  "Pooling", "mean", "ri",
+  "Pooling", "ar", "ml_ar",
+  "Pooling", "var", "ml_var",
+  "Regularisation", "var", "lasso_var",
+  "Trend", "mean", "trend",
+  "Total", "mean", "ml_var"
+) |>
+  mutate(type = factor(type, levels = step_types),
+         step = paste(model_labels[match(from, model_order)], "→",
+                      model_labels[match(to, model_order)]))
 
-coef_draws(fit_m1, "b_model") |>
-  mutate(rel_mse = exp(value)) |>
-  select(.draw, model, rel_mse) |>
-  pivot_wider(names_from = model, values_from = rel_mse) |>
-  # the mean model is the reference of relative MSE
-  mutate(mean = 1,
-         `Mean → AR` = ar / mean, `AR → VAR` = var / ar, `VAR → mlVAR` = ml_var / var,
-         `AR → mlAR` = ml_ar / ar, `mlAR → mlVAR` = ml_var / ml_ar, `Mean → mlVAR` = ml_var / mean,
-         `AR → LASSO VAR` = lasso_var / ar, `VAR → LASSO VAR` = lasso_var / var) |>
-  select(.draw, all_of(step_levels)) |>
-  pivot_longer(-.draw, names_to = "step", values_to = "ratio") |>
-  summarise(ratio_ci = fmt_ci(ratio), p_lower = mean(ratio < 1), .by = step) |>
-  mutate(step = factor(step, levels = step_levels)) |>
-  arrange(step) |>
-  knitr::kable(digits = 2, col.names = c("Step", "MSE ratio after vs. before", "P(< 1)"))
+# log relative MSE per draw, one column per model; the mean model is the reference, so 0
+log_rel_mse <- coef_draws(fit_m1, "b_model") |>
+  pivot_wider(names_from = model, values_from = value) |>
+  mutate(mean = 0)
+
+oos_wide <- combined |>
+  filter(set == "oos", is.finite(rel_mse)) |>
+  mutate(model = as.character(model)) |>
+  select(dataset_id, id, model, rel_mse) |>
+  pivot_wider(names_from = model, values_from = rel_mse)
+stopifnot(all(c(steps$from, steps$to) %in% names(oos_wide)))
+
+step_summary <- lapply(seq_len(nrow(steps)), function(i) {
+  from <- steps$from[i]
+  to <- steps$to[i]
+  ratio <- exp(log_rel_mse[[to]] - log_rel_mse[[from]])
+  paired <- is.finite(oos_wide[[from]]) & is.finite(oos_wide[[to]])
+  before <- oos_wide[[from]][paired]
+  after <- oos_wide[[to]][paired]
+  tibble(ratio_ci = fmt_ci(ratio), p_lower = mean(ratio < 1),
+         improved = mean(after < before), ties = sum(after == before), n = sum(paired))
+}) |>
+  bind_rows()
+steps <- bind_cols(steps, step_summary)
+
+step_table <- steps |>
+  mutate(improved = sprintf("%.0f%%", 100 * improved)) |>
+  select(type, step, ratio_ci, p_lower, improved, n, ties)
+# ties: equal relative MSE, counted as not improved. shown only if any occur
+if (all(steps$ties == 0)) step_table <- select(step_table, -ties)
+
+step_col_names <- c(type = "Type", step = "Step", ratio_ci = "Error ratio [95% CrI]",
+                    p_lower = "P(< 1)", improved = "Improved", n = "n", ties = "Ties")
+knitr::kable(step_table, digits = 2, col.names = step_col_names[names(step_table)])
 ```
 
-
-For the dataset-level estimates, we add the dataset's random intercept and the random intercept of its dataset × model combination to each model's population-level coefficient. We leave out the person-level random intercept. Each estimate therefore describes a typical person in that dataset, whose person effect is zero. 
-
-
 ```{r}
-#| label: fig-m1-datasets
-#| fig-cap: "M1: dataset-level OOS MSE relative to the mean model. Points are posterior medians, thick bars are 80% and thin bars 95% CrIs. All datasets is the population-level estimate."
-#| fig-height: 10
-#| fig-width: 9
+#| label: tbl-m1-steps-latex
+# the paper version: grouped by step type, as in the model overview table. needs booktabs
+step_rows <- unlist(lapply(levels(droplevels(steps$type)), function(type) {
+  group <- steps[steps$type == type, ]
+  step_tex <- paste(model_labels[match(group$from, model_order)], "$\\rightarrow$",
+                    model_labels[match(group$to, model_order)])
+  c(paste0("\\multicolumn{5}{@{}l}{\\textit{", type, "}} \\\\"),
+    sprintf("\\quad %s & %s & %.2f & %.0f\\%% & %d \\\\", step_tex, group$ratio_ci,
+            group$p_lower, 100 * group$improved, group$n))
+}))
 
-# the linear predictor without the person effect is the dataset-level location of log relative MSE
-m1_datasets <- expand_grid(model = levels(fit_m1$data$model),
-                           dataset_id = unique(fit_m1$data$dataset_id)) |>
-  add_linpred_draws(fit_m1, re_formula = ~ (1 | dataset_id) + (1 | dataset_id:model)) |>
-  ungroup() |>
-  left_join(dataset_labels, by = "dataset_id") |>
-  mutate(rel_mse = exp(.linpred)) |>
-  select(.draw, model, dataset, rel_mse)
-
-m1_population <- coef_draws(fit_m1, "b_model") |>
-  mutate(rel_mse = exp(value), dataset = "All datasets") |>
-  select(.draw, model, dataset, rel_mse)
-
-# lowest mlVAR error at the top, below the population-level row
-forest_order <- m1_datasets |>
-  filter(model == "ml_var") |>
-  summarise(median = median(rel_mse), .by = dataset) |>
-  arrange(desc(median)) |>
-  pull(dataset)
-
-m1_forest <- bind_rows(m1_datasets, m1_population) |>
-  mutate(dataset = factor(dataset, levels = c(forest_order, "All datasets")),
-         model = factor(model, levels = meta_order, labels = meta_labels))
-
-ggplot(m1_forest, aes(x = rel_mse, y = dataset, colour = model)) +
-  geom_hline(yintercept = seq(1.5, nlevels(m1_forest$dataset) - 0.5, 1),
-             colour = "grey90", linewidth = 0.3) +
-  geom_vline(xintercept = 1, colour = "grey50", linetype = "dashed") +
-  ggdist::stat_pointinterval(position = position_dodge(width = 0.7), .width = c(0.8, 0.95),
-                             point_size = 1.5, interval_size_range = c(0.4, 1.2)) +
-  scale_x_log10(breaks = ratio_breaks) +
-  ggh4x::facet_grid2(path ~ component, axes = "all", remove_labels = "y") +
-  coord_cartesian(xlim = x_lim, expand = FALSE) +
-  labs(x = "OOS MSE ratio after vs. before the step (log scale, < 1 = better)", y = NULL) +
-  theme_bs(base_size = 11) +
-  theme(panel.grid.major.y = element_blank(),
-        panel.grid.major.x = element_line(colour = "#E0E0E0"))
+decomposition_tex <- c(
+  "\\begin{table}[ht]",
+  "\\centering",
+  "\\caption{Decomposition of Predictive Gains}",
+  "\\label{tab:decomposition}",
+  "\\small",
+  "\\begin{tabular}{@{}lrrrr@{}}",
+  "\\toprule",
+  "Step & Error ratio [95\\% CrI] & $P(< 1)$ & Improved & $n$ \\\\",
+  "\\midrule",
+  step_rows,
+  "\\bottomrule",
+  "\\end{tabular}",
+  "",
+  "\\vspace{0.4em}",
+  paste("\\noindent \\raggedright \\textit{Note.} Error ratio: out-of-sample relMSE after vs.",
+        "before the step, estimated with meta-model M1 (posterior median and 95\\% credible",
+        "interval). Values below 1 indicate lower error after the step. $P(< 1)$: posterior",
+        "probability that the step lowers the error. Improved: share of the $n$ persons with a",
+        "defined relMSE for both models whose relMSE is lower after the step."),
+  "\\end{table}"
+)
+writeLines(decomposition_tex, here("output", "paper", "tbl_decomposition.tex"))
 ```
 
 ## Model dominance

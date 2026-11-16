@@ -1,0 +1,33 @@
+\begin{table}[ht]
+\centering
+\caption{Decomposition of Predictive Gains}
+\label{tab:decomposition}
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Step & Error ratio [95\% CrI] & $P(< 1)$ & Improved & $n$ \\
+\midrule
+\multicolumn{5}{@{}l}{\textit{Reference}} \\
+\quad Mean $\rightarrow$ Naive & 1.26 [1.19, 1.33] & 0.00 & 29\% & 1127 \\
+\multicolumn{5}{@{}l}{\textit{Autoregression}} \\
+\quad Mean $\rightarrow$ AR & 0.92 [0.87, 0.97] & 1.00 & 74\% & 1408 \\
+\quad RI $\rightarrow$ mlAR & 0.91 [0.86, 0.96] & 1.00 & 82\% & 1416 \\
+\multicolumn{5}{@{}l}{\textit{Cross-lags}} \\
+\quad AR $\rightarrow$ VAR & 1.28 [1.20, 1.36] & 0.00 & 23\% & 1405 \\
+\quad mlAR $\rightarrow$ mlVAR & 1.01 [0.96, 1.07] & 0.34 & 51\% & 1416 \\
+\multicolumn{5}{@{}l}{\textit{Pooling}} \\
+\quad Mean $\rightarrow$ RI & 1.00 [0.96, 1.05] & 0.47 & 39\% & 1416 \\
+\quad AR $\rightarrow$ mlAR & 0.99 [0.93, 1.05] & 0.63 & 53\% & 1408 \\
+\quad VAR $\rightarrow$ mlVAR & 0.78 [0.74, 0.83] & 1.00 & 81\% & 1411 \\
+\multicolumn{5}{@{}l}{\textit{Regularisation}} \\
+\quad VAR $\rightarrow$ LASSO VAR & 0.83 [0.78, 0.88] & 1.00 & 72\% & 1411 \\
+\multicolumn{5}{@{}l}{\textit{Trend}} \\
+\quad Mean $\rightarrow$ Trend & 1.00 [0.95, 1.05] & 0.49 & 54\% & 1416 \\
+\multicolumn{5}{@{}l}{\textit{Total}} \\
+\quad Mean $\rightarrow$ mlVAR & 0.92 [0.87, 0.97] & 1.00 & 70\% & 1416 \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.4em}
+\noindent \raggedright \textit{Note.} Error ratio: out-of-sample relMSE after vs. before the step, estimated with meta-model M1 (posterior median and 95\% credible interval). Values below 1 indicate lower error after the step. $P(< 1)$: posterior probability that the step lowers the error. Improved: share of the $n$ persons with a defined relMSE for both models whose relMSE is lower after the step.
+\end{table}

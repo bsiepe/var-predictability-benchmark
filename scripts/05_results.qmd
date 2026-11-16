@@ -879,9 +879,7 @@ ggplot(abs_rel, aes(x = sd_train_mean, y = rmse, colour = rel_mse)) +
 
 This strong correlation suggests that the absolute performance of mlVAR is largely determined by the within-person variability of the series. 
 
-
-
-# Model-Based Estimates of Predictive Accuracy
+## Item-specific effects
 
 ```{r}
 #| label: setup-meta
@@ -1074,76 +1072,172 @@ moderator_ratios(fit_m3, c(log_n_within = log(2), log_n_between = log(2),
                              "Autocorrelation, within", "Autocorrelation, between"))
 ```
 
-
-# Item-Specific Effects
-
-```{r}
-#| label: item-ratios
-
-item_contrasts <- c(ar = "AR vs. mean", var = "VAR vs. mean")
-
-item_mse <- features$item_error |>
-  filter(model %in% c("mean", names(item_contrasts))) |>
-  select(dataset_id, id, variable, model, mse) |>
-  pivot_wider(names_from = model, values_from = mse, names_prefix = "mse_") |>
-  pivot_longer(c(mse_ar, mse_var), names_to = "model", names_prefix = "mse_",
-               values_to = "mse_model")
-
-# item-level MSE ratio of each model vs. the mean model, per person
-item_ratio <- item_mse |>
-  filter(mse_mean > 0, mse_model > 0) |>
-  mutate(ratio = mse_model / mse_mean)
-
-item_rho1 <- features$item |>
-  summarise(rho1_median = median(rho1_train, na.rm = TRUE), .by = c(dataset_id, variable))
-
-item_summary <- item_ratio |>
-  summarise(ratio = geo_mean(ratio), n_persons = n(), .by = c(dataset_id, variable, model)) |>
-  left_join(item_rho1, by = c("dataset_id", "variable")) |>
-  left_join(dataset_labels, by = "dataset_id") |>
-  mutate(item = paste0(dataset, ": ", variable),
-         contrast = factor(item_contrasts[model], levels = item_contrasts))
-
-stopifnot(!anyNA(item_summary$dataset))
-```
-
-Person-item combinations with zero test-window MSE, which are excluded from the item ratios.
+## Value of cross-dynamics and regularisation by data per parameter
 
 ```{r}
-#| label: item-zero-mse
-
-item_mse |>
-  count(model, mean_zero = mse_mean == 0, model_zero = mse_model == 0) |>
-  filter(mean_zero | model_zero)
-```
-
-```{r}
-#| label: fig-item-extremes
-#| fig-cap: "The 10 items with the lowest and highest OOS MSE relative to the mean model, per contrast. Points are geometric means across persons. Colour shows the item's lag-1 autocorrelation in the training window, median across persons."
+#| label: fig-cross-dynamics
+#| fig-cap: "Change in OOS MSE from adding cross-lagged effects and from regularising them, by the number of training observations per VAR coefficient. The y-axis shows the MSE ratio of the model after vs. before the arrow. AR → LASSO VAR combines adding cross-lags with shrinking all lags, and VAR → LASSO VAR shows the value of regularisation."
 #| fig-height: 8
-#| fig-width: 11
+#| fig-width: 9
 
-n_extreme <- 10
+# y-range symmetric around 1 on the log axis
+y_lim_cross <- c(0.5, 2)
+cross_levels <- c("AR → VAR", "mlAR → mlVAR", "AR → LASSO VAR", "VAR → LASSO VAR")
 
-item_extremes <- bind_rows(
-  slice_min(item_summary, ratio, n = n_extreme, with_ties = FALSE, by = contrast),
-  slice_max(item_summary, ratio, n = n_extreme, with_ties = FALSE, by = contrast)
-) |>
-  # an item ranks differently per contrast, so each panel needs its own y levels.
-  # lowest error at the top
-  mutate(item_key = reorder(paste(item, contrast, sep = "__"), desc(ratio)))
+cross_dyn <- combined |>
+  filter(set == "oos", model %in% c("ar", "var", "lasso_var", "ml_ar", "ml_var"),
+         is.finite(rel_mse)) |>
+  select(dataset_id, id, model, rel_mse) |>
+  pivot_wider(names_from = model, values_from = rel_mse) |>
+  mutate(`AR → VAR` = var / ar, `mlAR → mlVAR` = ml_var / ml_ar,
+         `AR → LASSO VAR` = lasso_var / ar, `VAR → LASSO VAR` = lasso_var / var) |>
+  select(dataset_id, id, all_of(cross_levels)) |>
+  pivot_longer(-c(dataset_id, id), names_to = "comparison", values_to = "ratio") |>
+  filter(is.finite(ratio)) |>
+  mutate(comparison = factor(comparison, levels = cross_levels)) |>
+  left_join(select(features$person, dataset_id, id, obs_per_var_eq_par),
+            by = c("dataset_id", "id"))
 
-ggplot(item_extremes, aes(x = ratio, y = item_key, colour = rho1_median)) +
-  geom_vline(xintercept = 1, colour = "grey50", linetype = "dashed") +
-  # separates the lowest from the highest items
-  geom_hline(yintercept = n_extreme + 0.5, colour = "grey70", linewidth = 0.3) +
-  geom_point(size = 2.5) +
-  scale_y_discrete(labels = \(x) sub("__.*$", "", x)) +
+stopifnot(!anyNA(cross_dyn$obs_per_var_eq_par))
+
+beyond_cross <- cross_dyn |>
+  summarise(n_below = sum(ratio < y_lim_cross[1]), n_above = sum(ratio > y_lim_cross[2]),
+            .by = comparison) |>
+  mutate(label = sprintf("%d above, %d below range", n_above, n_below))
+
+ggplot(cross_dyn, aes(x = obs_per_var_eq_par, y = ratio)) +
+  geom_hline(yintercept = 1, colour = "grey50", linewidth = 0.3) +
+  geom_point(alpha = 0.15, size = 0.8, colour = "#2C3E50") +
+  geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
+              method.args = list(family = "symmetric"),
+              colour = component_palette[["Cross-dynamics"]], linewidth = 1) +
+  # draw one line per dataset to show the within-dataset trend
+  # geom_smooth(aes(group = dataset_id), method = "lm", se = FALSE,
+  #             colour = scales::alpha("grey50", 0.6), linewidth = 0.5) +
+  geom_text(data = beyond_cross, aes(x = -Inf, y = Inf, label = label),
+            inherit.aes = FALSE, hjust = -0.05, vjust = 1.5, size = 3, colour = "grey30") +
+  scale_x_log10() +
+  scale_y_log10(breaks = ratio_breaks) +
+  ggh4x::facet_wrap2(~ comparison, nrow = 2, axes = "all") +
+  coord_cartesian(ylim = y_lim_cross) +
+  labs(x = "Training observations per VAR coefficient (first fold, log scale)",
+       y = "OOS MSE ratio (log scale, < 1 = model after the arrow better)") +
+  theme_bs()
+
+# save figure for paper
+ggsave("fig_cross_dynamics.pdf", width = 9, height = 8, dpi = 300,
+       path = here("figures"))
+```
+
+## Value of pooling by series length
+
+```{r}
+#| label: fig-shrinkage
+#| fig-cap: "Person-level OOS MSE relative to the mean model: person-specific vs. multilevel model, coloured by training series length. Points below the diagonal: pooling lowered the error."
+#| fig-height: 5
+#| fig-width: 10
+
+xy_lim <- c(0.25, 4)
+
+shrinkage <- combined |>
+  filter(set == "oos", model %in% c("ar", "ml_ar", "var", "ml_var"), is.finite(rel_mse)) |>
+  select(dataset_id, id, model, rel_mse) |>
+  pivot_wider(names_from = model, values_from = rel_mse) |>
+  pivot_longer(c(ml_ar, ml_var), names_to = "ml_model", values_to = "multilevel") |>
+  mutate(person_specific = if_else(ml_model == "ml_ar", ar, var),
+         comparison = factor(ml_model, levels = c("ml_ar", "ml_var"),
+                             labels = c("AR vs. mlAR", "VAR vs. mlVAR"))) |>
+  filter(is.finite(person_specific), is.finite(multilevel)) |>
+  left_join(select(features$person, dataset_id, id, n_train_first), by = c("dataset_id", "id")) |>
+  # short series last, so they are drawn on top
+  arrange(desc(n_train_first))
+
+stopifnot(!anyNA(shrinkage$n_train_first))
+
+beyond_shrinkage <- shrinkage |>
+  summarise(n_outside = sum(person_specific < xy_lim[1] | person_specific > xy_lim[2] |
+                             multilevel < xy_lim[1] | multilevel > xy_lim[2]),
+            .by = comparison) |>
+  mutate(label = sprintf("%d outside plotted range", n_outside))
+
+# arrows from the diagonal into the region where each model has the lower error
+better_arrows <- tibble(
+  x = c(0.5, 2), y = c(0.5, 2),
+  xend = c(0.8, 1.25), yend = c(0.31, 3.2),
+  label = c("Multilevel\nbetter", "Person-specific\nbetter"),
+  hjust = c(0, 1), vjust = c(1, 0)
+)
+
+ggplot(shrinkage, aes(x = person_specific, y = multilevel, colour = n_train_first)) +
+  geom_hline(yintercept = 1, colour = "grey85", linewidth = 0.3) +
+  geom_vline(xintercept = 1, colour = "grey85", linewidth = 0.3) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey50", linetype = "dashed") +
+  geom_point(alpha = 0.6, size = 0.9) +
+  geom_segment(data = better_arrows, aes(x = x, y = y, xend = xend, yend = yend),
+               arrow = arrow(length = unit(0.2, "cm")), colour = "grey20", linewidth = 0.5,
+               inherit.aes = FALSE) +
+  geom_text(data = better_arrows,
+            aes(x = xend, y = yend, label = label, hjust = hjust, vjust = vjust),
+            size = 3.5, colour = "grey20", lineheight = 0.9, inherit.aes = FALSE) +
+  geom_text(data = beyond_shrinkage, aes(x = xy_lim[1], y = xy_lim[2], label = label),
+            inherit.aes = FALSE, hjust = 0, vjust = 1.5, size = 3, colour = "grey30") +
   scale_x_log10(breaks = c(0.25, 0.5, 1, 2, 4)) +
-  scale_colour_viridis_c(name = "Lag-1 autocorrelation\n(median)") +
-  ggh4x::facet_wrap2(~ contrast, scales = "free_y", axes = "all") +
-  labs(x = "OOS MSE relative to the mean model (log scale)", y = NULL) +
+  scale_y_log10(breaks = c(0.25, 0.5, 1, 2, 4)) +
+  scale_colour_viridis_c(transform = "log10", name = "Training length\n(first fold)") +
+  ggh4x::facet_wrap2(~ comparison, axes = "all") +
+  coord_cartesian(xlim = xy_lim, ylim = xy_lim, expand = FALSE) +
+  labs(x = "Person-specific model (relative MSE, log scale)",
+       y = "Multilevel model (relative MSE, log scale)") +
   theme_bs() +
-  theme(legend.position = "bottom")
+  theme(legend.position = "right")
+```
+
+```{r}
+#| label: fig-pooling-length
+#| fig-cap: "Change in OOS MSE from pooling, by the person's training series length. The y-axis shows the MSE ratio of the multilevel vs. the person-specific model."
+#| fig-height: 5
+#| fig-width: 9
+
+# y-range symmetric around 1 on the log axis
+y_lim <- c(0.5, 2)
+
+pooling <- combined |>
+  filter(set == "oos", model %in% c("ar", "ml_ar", "var", "ml_var"), is.finite(rel_mse)) |>
+  select(dataset_id, id, model, rel_mse) |>
+  pivot_wider(names_from = model, values_from = rel_mse) |>
+  mutate(`AR → mlAR` = ml_ar / ar, `VAR → mlVAR` = ml_var / var) |>
+  select(dataset_id, id, `AR → mlAR`, `VAR → mlVAR`) |>
+  pivot_longer(-c(dataset_id, id), names_to = "comparison", values_to = "ratio") |>
+  filter(is.finite(ratio)) |>
+  left_join(select(features$person, dataset_id, id, n_train_first),
+            by = c("dataset_id", "id"))
+
+stopifnot(!anyNA(pooling$n_train_first))
+
+beyond <- pooling |>
+  summarise(n_below = sum(ratio < y_lim[1]), n_above = sum(ratio > y_lim[2]),
+            .by = comparison) |>
+  mutate(label = sprintf("%d above, %d below range", n_above, n_below))
+
+# robust loess downweights persons whose person-specific model breaks down.
+# it is fitted on the log axis, so improvements and deteriorations count alike
+ggplot(pooling, aes(x = n_train_first, y = ratio)) +
+  geom_hline(yintercept = 1, colour = "grey50", linewidth = 0.3) +
+  geom_point(alpha = 0.15, size = 0.8, colour = "#2C3E50") +
+  geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
+              method.args = list(family = "symmetric"),
+              colour = component_palette[["Pooling"]], linewidth = 1) +
+  # draw one line per dataset to show the within-dataset trend
+  # geom_smooth(aes(group = dataset_id), method = "lm", se = FALSE,
+  #             colour = scales::alpha("grey50", 0.6), linewidth = 0.5) +
+  geom_text(data = beyond, aes(x = -Inf, y = Inf, label = label),
+            inherit.aes = FALSE, hjust = -0.05, vjust = 1.5, size = 3, colour = "grey30") +
+  scale_x_log10() +
+  scale_y_log10(breaks = ratio_breaks) +
+  ggh4x::facet_wrap2(~ comparison, axes = "all") +
+  coord_cartesian(ylim = y_lim) +
+  labs(x = "Training series length (first fold, log scale)",
+       y = "OOS MSE ratio (log scale, < 1 = pooling better)") +
+  theme_bs()
 ```
 

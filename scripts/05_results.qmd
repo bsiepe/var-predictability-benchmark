@@ -61,10 +61,6 @@ dataset_labels <- dataset_meta |>
          dataset = if_else(duplicated(dataset) | duplicated(dataset, fromLast = TRUE),
                            paste0(dataset, " [", dataset_id, "]"), dataset))
 
-dat_oos <- combined |>
-  filter(set == "oos", is.finite(rmse), rmse > 0) |>
-  mutate(model = factor(model, levels = model_order, labels = model_labels))
-
 # plotting params
 decomp_models <- c("mean", "ar", "var", "ml_ar", "ml_var")
 component_levels <- c("Autoregression", "Cross-dynamics", "Pooling", "Total")
@@ -80,34 +76,40 @@ ratio_breaks <- c(0.5, 0.67, 0.8, 1, 1.25, 1.5, 2)
 
 ```
 
-# Descriptives
-
-## Sample overview
-
-`n_total_person` counts the number of scheduled beeps per person, in case information about the number of scheduled beeps is available. Only beeps from a person's first to last recorded day are counted, as scheduled days outside this span are unknown, so it may still underestimate the full schedule. It is used as a proxy for series length, not as a compliance measure.
-
 ```{r}
-#| label: tbl-sample
-#| tbl-cap: "Sample overview per dataset. Valid observations are timepoints with complete responses and a usable lag."
+#| label: setup-meta
 
-person_n <- combined |>
-  distinct(dataset_id, id, n_valid_person, n_total_person) |>
-  summarise(valid_median = median(n_valid_person), valid_min = min(n_valid_person),
-            valid_max = max(n_valid_person), rows_median = median(n_total_person),
-            .by = dataset_id)
+# fitted in 04_meta_regression.qmd
+fit_m1 <- readRDS(here("output", "analysis", "fit_relmse_m1.rds"))
+fit_m2 <- readRDS(here("output", "analysis", "fit_relmse_m2.rds"))
+fit_m3 <- readRDS(here("output", "analysis", "fit_relmse_m3.rds"))
+fit_s1 <- readRDS(here("output", "analysis", "fit_relmse_s1.rds"))
+fit_s4 <- readRDS(here("output", "analysis", "fit_relmse_s4.rds"))
 
-dataset_meta |>
-  left_join(person_n, by = "dataset_id") |>
-  arrange(first_author, year) |>
-  mutate(dataset = paste0(first_author, " (", year, ")"),
-         valid = sprintf("%g [%g, %g]", valid_median, valid_min, valid_max)) |>
-  select(dataset, n_beeps_per_day, n_persons_kept, n_persons_excluded, n_items,
-         valid, rows_median) |>
-  knitr::kable(col.names = c("Dataset", "Beeps per day", "Persons", "Excluded", "Items",
-                             "Valid obs. per person, median [range]", "Rows per person, median"))
+meta_order <- model_order[model_order != "mean"]
+meta_labels <- model_labels[model_order != "mean"]
+
+# one population-level coefficient per model and draw. "b_model" gives the location of log
+# relative MSE and "b_sigma_model" the residual scale on the log link. a suffix such as
+# ":log_n_within" selects the slope of that moderator instead
+coef_draws <- function(fit, prefix, suffix = "") {
+  posterior::as_draws_df(fit, variable = paste0("^", prefix, "[a-z_]+", suffix, "$"),
+                         regex = TRUE) |>
+    as_tibble() |>
+    pivot_longer(starts_with(prefix), names_to = "model",
+                 names_pattern = paste0(prefix, "([a-z_]+)", suffix), values_to = "value") |>
+    select(.draw, model, value)
+}
+
+# posterior median and 95% equal-tailed interval
+fmt_ci <- function(x) {
+  sprintf("%.2f [%.2f, %.2f]", median(x), quantile(x, 0.025), quantile(x, 0.975))
+}
 ```
 
-## Dataset table for the paper
+# Data and sample
+
+## Sample overview
 
 ```{r}
 #| label: tbl-datasets
@@ -212,7 +214,7 @@ latex_table <- c(
 writeLines(latex_table, here("output", "paper", "tbl_datasets.tex"))
 ```
 
-Overall dataset and person counts, before and after exclusions.
+Overall dataset and person counts, before and after exclusions. `n_total_person` counts the number of scheduled beeps per person, in case information about the number of scheduled beeps is available. Only beeps from a person's first to last recorded day are counted, as scheduled days outside this span are unknown, so it may still underestimate the full schedule. It is used as a proxy for series length, not as a compliance measure.
 ```{r}
 #| label: sample-totals
 
@@ -238,22 +240,7 @@ dataset_meta |>
                              "Excluded: zero variance"))
 ```
 
-```{r}
-#| label: tbl-exclusions-relmse
-#| tbl-cap: "Persons without a defined OOS relative MSE, per dataset, reason and model. zero_model: the model predicts an item exactly. zero_reference: the mean model predicts an item exactly. missing: an item has no scored predictions. Persons are excluded only for the affected model."
-
-rel_mse_drops |>
-  filter(set == "oos") |>
-  left_join(select(dataset_meta, dataset_id, first_author, year), by = "dataset_id") |>
-  mutate(dataset = paste0(first_author, " (", year, ")"),
-         model = factor(model, levels = model_order, labels = model_labels)) |>
-  arrange(model) |>
-  pivot_wider(id_cols = c(dataset, reason_na), names_from = model, values_from = n,
-              values_fill = 0) |>
-  arrange(dataset, reason_na) |>
-  rename(Dataset = dataset, Reason = reason_na) |>
-  knitr::kable()
-```
+# Estimation diagnostics
 
 ## Estimation summary
 
@@ -371,23 +358,7 @@ failed |>
   knitr::kable()
 ```
 
-
-## Computation Times
-
-```{r}
-#| label: tbl-computation-time
-#| tbl-cap: "CPU time per model for the full rolling-origin evaluation, including all refits."
-
-# fits per person (person-level models) and per item and step (lmer models) are not comparable
-# units, so times are compared per dataset rather than per fit
-fit_times |>
-  summarise(total_min = sum(cpu_sec) / 60, median_sec = median(cpu_sec),
-            max_sec = max(cpu_sec), .by = model) |>
-  mutate(model = factor(model, levels = model_order, labels = model_labels)) |>
-  arrange(model) |>
-  knitr::kable(digits = 1, col.names = c("Model", "Total CPU time (min)",
-                                         "Median per dataset (s)", "Slowest dataset (s)"))
-```
+## Undefined relative MSE
 
 ```{r}
 #| label: computation-machine
@@ -396,39 +367,7 @@ unique(fit_times$cpu)
 ```
 
 
-## Extreme Relative Errors
-
-```{r}
-#| label: tbl-extreme-relmse
-#| tbl-cap: "Persons whose OOS MSE is more than 20 times higher or lower than that of the mean model, per dataset and model."
-
-# 20 times higher or lower than the mean model
-extreme_cut <- log(20)
-
-combined |>
-  filter(set == "oos", model != "mean", is.finite(rel_mse), abs(log(rel_mse)) > extreme_cut) |>
-  mutate(direction = if_else(rel_mse > 1, "higher", "lower"),
-         model = factor(model, levels = model_order, labels = model_labels),
-         dataset = paste0(first_author, " (", year, ")")) |>
-  count(dataset, model, direction) |>
-  arrange(desc(n)) |>
-  knitr::kable(col.names = c("Dataset", "Model", "Error vs. mean model", "Persons"))
-```
-
-```{r}
-#| label: tbl-extreme-var-data
-#| tbl-cap: "Training observations per VAR coefficient (first fold) for persons with extremely high VAR error and all other persons."
-
-combined |>
-  filter(set == "oos", model == "var", is.finite(rel_mse)) |>
-  left_join(select(features$person, dataset_id, id, obs_per_var_eq_par),
-            by = c("dataset_id", "id")) |>
-  mutate(group = if_else(log(rel_mse) > extreme_cut, "Extreme", "Other")) |>
-  summarise(persons = n(), median_obs = median(obs_per_var_eq_par),
-            min_obs = min(obs_per_var_eq_par), .by = group) |>
-  knitr::kable(digits = 2, col.names = c("VAR error", "Persons",
-                                         "Median obs. per coefficient", "Min obs. per coefficient"))
-```
+## Out-of-Scale Predictions
 
 ```{r}
 #| label: tbl-out-of-scale
@@ -451,53 +390,6 @@ features$oos |>
 
 
 # Predictive accuracy across the complexity ladder
-
-## Average RMSE across datasets
-
-We first look at the average RMSE across all datasets for each model. 
-
-```{r}
-#| label: fig-rmse-ladder
-#| fig-cap: "Out-of-sample RMSE by model complexity. Points are persons. Distributions show the median with 50% and 90% intervals."
-#| fig-height: 5.5
-#| fig-width: 8
-y_cap <- 0.75
-
-dat_rmse <- dat_oos |>
-  # persons are drawn left of the distribution
-  mutate(x_points = as.numeric(model) - 0.2)
-
-outliers <- dat_rmse |>
-  filter(rmse > y_cap) |>
-  count(model, name = "n_out")
-
-message(sprintf("%d observations (%.1f%%) with RMSE > %.2f beyond cap",
-                sum(outliers$n_out), 100 * sum(outliers$n_out) / nrow(dat_rmse), y_cap))
-
-# medians in the axis labels, so the panel stays free of text
-rmse_medians <- dat_rmse |>
-  summarise(median = median(rmse), .by = model)
-rmse_axis_labels <- setNames(sprintf("%s\nMdn %.2f", rmse_medians$model, rmse_medians$median),
-                             rmse_medians$model)
-
-ggplot(dat_rmse, aes(x = model, y = rmse)) +
-  geom_jitter(aes(x = x_points, colour = model), width = 0.07, height = 0, alpha = 0.12,
-              size = 0.4) +
-  ggdist::stat_halfeye(aes(fill = model), normalize = "groups", scale = 0.6,
-                       .width = c(0.5, 0.9), slab_alpha = 0.7, point_size = 2.5,
-                       colour = "grey15") +
-  # counts beyond the cap sit above the column of person points
-  geom_text(data = outliers,
-            aes(x = model, y = y_cap, label = paste0(n_out, " above")),
-            position = position_nudge(x = -0.2), vjust = 1.3, size = 4, colour = "grey30",
-            inherit.aes = FALSE) +
-  scale_x_discrete(labels = rmse_axis_labels) +
-  scale_fill_manual(values = model_palette, guide = "none") +
-  scale_colour_manual(values = model_palette, guide = "none") +
-  coord_cartesian(ylim = c(0, y_cap), expand = FALSE) +
-  labs(x = NULL, y = "Out-of-sample RMSE [0, 1]") +
-  theme_bs()
-```
 
 ## Relative MSE across datasets
 
@@ -558,68 +450,6 @@ ggplot(dat_rel, aes(x = model, y = rel_mse)) +
 # save this figure for the paper
 ggsave("fig_rel_mse_overall.pdf", width = 10, height = 6, dpi = 300,
 path = here("figures"))
-```
-
-## In-sample vs. out-of-sample relative MSE
-
-We here compute the in-sample performance by fitting each model on the whole time series, without a test-set split.
-
-```{r}
-#| label: fig-is-oos-barbell
-#| fig-cap: "In-sample and OOS MSE relative to the mean model per dataset and model. The in-sample reference is the mean model fitted to the whole series. Points are geometric means across persons. Rows are ordered by the gap of mlVAR. Values outside the plotted range are printed at the panel edge."
-#| fig-height: 10
-#| fig-width: 12
-
-is_oos <- combined |>
-  filter(set %in% c("in", "oos"), model != "mean", is.finite(rel_mse)) |>
-  select(dataset_id, id, model, set, rel_mse) |>
-  pivot_wider(names_from = set, values_from = rel_mse) |>
-  # persons enter only with both sets, so the dataset gap is paired
-  filter(is.finite(`in`), is.finite(oos)) |>
-  summarise(is = geo_mean(`in`), oos = geo_mean(oos), .by = c(dataset_id, model)) |>
-  left_join(dataset_labels, by = "dataset_id") |>
-  mutate(direction = if_else(oos > is, "OOS higher", "OOS lower"),
-         model = factor(model, levels = model_order[model_order != "mean"],
-                        labels = model_labels[model_order != "mean"]))
-
-# largest mlVAR gap at the top
-row_order <- is_oos |>
-  filter(model == "mlVAR") |>
-  arrange(oos / is) |>
-  pull(dataset)
-
-# symmetric around 1 on the log axis
-x_lim_gap <- c(0.4, 2.5)
-
-is_oos <- mutate(is_oos, dataset = factor(dataset, levels = union(row_order, dataset)))
-
-is_oos_points <- is_oos |>
-  pivot_longer(c(is, oos), names_to = "set", values_to = "rel_mse") |>
-  mutate(set = factor(set, levels = c("is", "oos"), labels = c("In-sample", "Out-of-sample")),
-         outside = rel_mse < x_lim_gap[1] | rel_mse > x_lim_gap[2],
-         x_label = if_else(rel_mse > 1, x_lim_gap[2], x_lim_gap[1]),
-         hjust = if_else(rel_mse > 1, 1, 0))
-
-ggplot(is_oos, aes(y = dataset)) +
-  geom_vline(xintercept = 1, colour = "grey50", linewidth = 0.3) +
-  geom_segment(aes(x = is, xend = oos, colour = direction), linewidth = 0.8) +
-  geom_point(data = is_oos_points, aes(x = rel_mse, fill = set),
-             shape = 21, colour = "grey30", size = 1.8, stroke = 0.3) +
-  geom_text(data = filter(is_oos_points, outside),
-            aes(x = x_label, label = sprintf("%.2f", rel_mse), hjust = hjust),
-            size = 2.5, colour = "grey20") +
-  scale_colour_manual(values = c("OOS higher" = "grey70",
-                                 "OOS lower" = component_palette[["Cross-dynamics"]]),
-                      name = NULL) +
-  scale_fill_manual(values = c("In-sample" = "white",
-                               "Out-of-sample" = component_palette[["Autoregression"]]),
-                    name = NULL) +
-  scale_x_log10(breaks = ratio_breaks) +
-  ggh4x::facet_wrap2(~ model, nrow = 2, axes = "all", remove_labels = "y") +
-  coord_cartesian(xlim = x_lim_gap) +
-  labs(x = "MSE relative to the mean model (log scale)", y = NULL) +
-  theme_bs(base_size = 11) +
-  theme(legend.position = "bottom")
 ```
 
 ## Model dominance
@@ -1050,44 +880,6 @@ ggplot(abs_rel, aes(x = sd_train_mean, y = rmse, colour = rel_mse)) +
 This strong correlation suggests that the absolute performance of mlVAR is largely determined by the within-person variability of the series. 
 
 
-## Model selection by in-sample fit
-
-```{r}
-#| label: fig-is-oos-selection
-#| fig-cap: "Share of persons for whom each model has the lowest in-sample and out-of-sample relative MSE. Numbers are counts of persons."
-#| fig-height: 5
-#| fig-width: 8
-
-best_model <- combined |>
-  filter(set %in% c("in", "oos"), is.finite(rel_mse)) |>
-  mutate(n_model_sets = n_distinct(model, set), .by = c(dataset_id, id)) |>
-  # a person's best model is only comparable if all models have a defined relative MSE in both sets
-  filter(n_model_sets == length(model_order) * 2) |>
-  # for each person, select the model with the lowest relative MSE in each set
-  slice_min(rel_mse, n = 1, with_ties = FALSE, by = c(dataset_id, id, set)) |>
-  select(dataset_id, id, set, model) |>
-  pivot_wider(names_from = set, values_from = model)
-
-selection <- best_model |>
-  pivot_longer(c(`in`, oos), names_to = "set", values_to = "model") |>
-  count(set, model) |>
-  complete(set, model = model_order, fill = list(n = 0)) |>
-  mutate(share = n / sum(n), .by = set) |>
-  mutate(model = factor(model, levels = model_order, labels = model_labels),
-         set = factor(set, levels = c("in", "oos"), labels = c("In-sample", "Out-of-sample")))
-
-ggplot(selection, aes(x = model, y = share, fill = set)) +
-  geom_col(position = position_dodge(width = 0.8), width = 0.75) +
-  geom_text(aes(label = if_else(n > 0, as.character(n), ""), y = share),
-            position = position_dodge(width = 0.8), vjust = -0.5, size = 3, colour = "grey20") +
-  scale_fill_manual(values = c("In-sample" = "grey75",
-                               "Out-of-sample" = component_palette[["Autoregression"]]),
-                    name = NULL) +
-  scale_y_continuous(labels = scales::label_percent(), limits = c(0, 1.05), expand = c(0, 0)) +
-  labs(x = NULL, y = "Share of persons with lowest relative MSE") +
-  theme_bs()
-```
-
 
 # Model-Based Estimates of Predictive Accuracy
 
@@ -1353,21 +1145,5 @@ ggplot(item_extremes, aes(x = ratio, y = item_key, colour = rho1_median)) +
   labs(x = "OOS MSE relative to the mean model (log scale)", y = NULL) +
   theme_bs() +
   theme(legend.position = "bottom")
-```
-
-```{r}
-#| label: fig-item-autocorrelation
-#| fig-cap: "Item-level OOS MSE relative to the mean model by the item's lag-1 autocorrelation in the training window. Points are items, as geometric means of the ratio and medians of the autocorrelation across persons."
-#| fig-height: 5
-#| fig-width: 10
-
-ggplot(item_summary, aes(x = rho1_median, y = ratio)) +
-  geom_hline(yintercept = 1, colour = "grey50", linetype = "dashed") +
-  geom_point(alpha = 0.6, size = 1.5, colour = "#2C3E50") +
-  scale_y_log10(breaks = c(0.25, ratio_breaks, 4)) +
-  ggh4x::facet_wrap2(~ contrast, axes = "all") +
-  labs(x = "Lag-1 autocorrelation in the training window (median across persons)",
-       y = "OOS MSE relative to the mean model (log scale)") +
-  theme_bs()
 ```
 

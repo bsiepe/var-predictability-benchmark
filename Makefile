@@ -36,6 +36,7 @@ REFERENCES   := output/paper/dataset_references.bib output/paper/dataset_citatio
 # outputs of 03_collect_results.R that downstream steps read
 COLLECTED    := output/meta/combined.rds output/analysis/lasso_mean.rds
 META_MODELS  := output/analysis/fit_relmse_m1.rds \
+				output/analysis/fit_relmse_m1b.rds \
 				output/analysis/fit_relmse_m2.rds \
 				output/analysis/fit_relmse_m3.rds \
 				output/analysis/fit_relmse_m1_prior.rds \

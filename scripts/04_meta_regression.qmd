@@ -73,8 +73,10 @@ ppc_density <- function(y, yrep, group = NULL, widen = 0.25) {
   p + ggplot2::coord_cartesian(xlim = limits)
 }
 
+q01 <- function(x) stats::quantile(x, 0.01)
 q05 <- function(x) stats::quantile(x, 0.05)
 q95 <- function(x) stats::quantile(x, 0.95)
+q99 <- function(x) stats::quantile(x, 0.99)
 
 # log_y: compare on the log scale, for the lognormal S1 whose response is rel_mse itself
 prior_check <- function(fit, log_y = FALSE) {
@@ -87,22 +89,36 @@ prior_check <- function(fit, log_y = FALSE) {
   ppc_density(y, yrep, widen = 1)
 }
 
-posterior_checks <- function(fit, log_y = FALSE, group = NULL) {
+posterior_checks <- function(fit, log_y = FALSE) {
   y <- model_y(fit)
   yrep <- brms::posterior_predict(fit, ndraws = 500)
   if (log_y) {
     y <- log(y)
     yrep <- log(yrep)
   }
+  group <- fit$data$model
   print(ppc_density(y, yrep[1:50, ], group = group))
   print(bayesplot::ppc_stat_2d(y, yrep, stat = c("q05", "q95")))
+  print(bayesplot::ppc_stat_2d(y, yrep, stat = c("q01", "q99")))
+  for (stat in c("q05", "q95")) {
+    print(bayesplot::ppc_stat_grouped(y, yrep, group = group, stat = stat) +
+            ggplot2::ggtitle(stat))
+  }
   invisible(NULL)
 }
 ```
 
 All models are fitted with `refresh = 0` and `silent = 2`, so that the rendered report does not contain Stan's compilation and sampling messages.
 
-The predictive checks compare the observed response with responses simulated from the model. With a Student-t likelihood, a few simulated values are extreme, and a density plot would stretch its x-axis to include them, so that the bulk of the distribution is no longer visible. The density plots are therefore zoomed to the observed range plus a margin, without dropping any simulated values. As a density plot cannot show well whether a model reproduces the spread and the tails, each posterior check is complemented by a plot of the 5% and 95% quantiles of the simulated data against the observed ones. These quantiles are not affected by single extreme values. The lognormal model S1 is checked on the log scale as well, so that its checks are comparable to those of the Student-t models.
+The predictive checks compare the observed response with responses simulated from the model, using each person's and dataset's estimated random effects. With a Student-t likelihood, a few simulated values are extreme, and a density plot would stretch its x-axis to include them, so that the bulk of the distribution is no longer visible. The density plots are therefore zoomed to the observed range plus a margin, without dropping any simulated values, and drawn separately per benchmark model.
+
+As a density plot cannot show well whether a model reproduces the spread and the tails, each posterior check also compares quantiles of the simulated data with the observed ones:
+
+- The 5% and 95% quantiles describe the spread of the bulk of the distribution. They are not affected by single extreme values.
+- The 1% and 99% quantiles describe the tails. This is where a Student-t likelihood should differ from a lognormal one, if the data contain outliers.
+- The 5% and 95% quantiles per benchmark model show whether a misfit comes from particular models, for example from the long right tail of the idiographic VAR.
+
+The lognormal model S1 is checked on the log scale as well, so that its checks are comparable to those of the Student-t models. The checks of S4 are not directly comparable: on the raw scale, most of the spread of log MSE is between persons, and the person random effects absorb it.
 
 
 We then need to create unique identifiers for each individual, ensuring that the same id number is not mistaken as the same person across different datasets. We do this by combining the dataset name and the person id.
@@ -212,11 +228,11 @@ Here's a traceplot of some main parameters:
 bayesplot::mcmc_trace(fit_relmse_m1, regex_pars = "^b_")
 ```
 
-Here are the posterior predictive checks of the model, with the densities separately per benchmark model:
+Here are the posterior predictive checks of the model:
 
 ```{r}
 #| label: ppcheck-relmse-m1
-posterior_checks(fit_relmse_m1, group = fit_relmse_m1$data$model)
+posterior_checks(fit_relmse_m1)
 ```
 
 

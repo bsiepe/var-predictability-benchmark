@@ -235,6 +235,79 @@ Here are the posterior predictive checks of the model:
 posterior_checks(fit_relmse_m1)
 ```
 
+### M1 with Dataset-Specific Scales (M1b)
+
+In M1, the residual scale differs only between benchmark models. Each model's errors are thus assumed to scatter equally widely in every dataset. The item-level results suggest otherwise: the idiographic VAR, for example, scatters much more in datasets with few observations per parameter. A Student-t likelihood with very small degrees of freedom ν can absorb such differences by being both very peaked and very wide. M1b therefore adds a random intercept for each combination of dataset and model to the log residual scale, so that the scales are partially pooled in the same way as the locations. The location part and all other priors are the same as in M1. The standard deviation of the new random effect gets the same prior as the other random-effect standard deviations.
+
+If the small ν in M1 reflects such differences in scale, ν should be larger in M1b, and the predictive checks per benchmark model should fit better. If the location estimates of M1 and M1b agree, our results do not depend on how the scale is modelled.
+
+```{r}
+#| label: meta-relmse-m1b
+model_path <- here::here("output", "analysis", "fit_relmse_m1b.rds")
+
+priors_t_scale <- c(priors_t, prior(exponential(2), class = sd, dpar = sigma))
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_m1b <- brm(
+    bf(log(rel_mse) ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
+       sigma ~ 0 + model + (1 | dataset_id:model)),
+    data = df_rel,
+    family = student(),
+    prior = priors_t_scale,
+    chains = 4,
+    cores = 4,
+    iter = 3000,
+    warmup = 1000,
+    seed = seed,
+    refresh = 0,
+    silent = 2
+  )
+
+  saveRDS(fit_relmse_m1b, model_path)
+} else {
+  fit_relmse_m1b <- read_fit(model_path, "student")
+}
+```
+
+```{r}
+#| label: summary-relmse-m1b
+parameters::model_parameters(fit_relmse_m1b, test = "pd")
+```
+
+Posterior predictive checks of M1b:
+
+```{r}
+#| label: ppcheck-relmse-m1b
+posterior_checks(fit_relmse_m1b)
+```
+
+The next table compares ν between M1 and M1b, and then the location estimates of each benchmark model, as relMSE relative to the mean model. Both are posterior medians with 95% credible intervals.
+
+```{r}
+#| label: compare-m1-m1b
+nu_summary <- function(fit) {
+  nu <- brms::as_draws_df(fit, variable = "nu")$nu
+  sprintf("%.2f [%.2f, %.2f]", stats::median(nu), stats::quantile(nu, 0.025),
+          stats::quantile(nu, 0.975))
+}
+
+tibble::tibble(model = c("M1", "M1b"),
+               nu = c(nu_summary(fit_relmse_m1), nu_summary(fit_relmse_m1b))) |>
+  pander::pander(caption = "Degrees of freedom of the Student-t likelihood.")
+
+location_summary <- function(fit) {
+  location <- brms::fixef(fit, robust = TRUE)
+  location <- location[grepl("^model", rownames(location)), , drop = FALSE]
+  tibble::tibble(model = sub("^model", "", rownames(location)),
+                 rel_mse = sprintf("%.2f [%.2f, %.2f]", exp(location[, "Estimate"]),
+                                   exp(location[, "Q2.5"]), exp(location[, "Q97.5"])))
+}
+
+dplyr::left_join(location_summary(fit_relmse_m1), location_summary(fit_relmse_m1b),
+                 by = "model", suffix = c("_m1", "_m1b")) |>
+  pander::pander(caption = "Population-level relMSE relative to the mean model, M1 vs. M1b.")
+```
+
 
 ### M1 + Training Length by Model (M2)
 
@@ -523,12 +596,46 @@ convergence <- function(fit) {
   )
 }
 
-list(M1 = fit_relmse_m1, M2 = fit_relmse_m2, M3 = fit_relmse_m3,
+list(M1 = fit_relmse_m1, M1b = fit_relmse_m1b, M2 = fit_relmse_m2, M3 = fit_relmse_m3,
      S1 = fit_relmse_s1, S4 = fit_relmse_s4) |>
   lapply(convergence) |>
   dplyr::bind_rows(.id = "model") |>
   pander::pander(digits = 3, caption = "Convergence diagnostics per fitted model.")
 ```
+
+# Computation Times
+
+Stan stores the warmup and sampling time of each chain in the fitted model, so the computation times can be read from the cached fits without refitting. They do not include the compilation of the Stan models. The four chains of a model run in parallel on separate cores: the sampling time adds up all chains, and the elapsed time is that of the slowest chain. The prior predictive models are listed separately.
+
+```{r}
+#| label: meta-times
+meta_fits <- list(
+  M1 = fit_relmse_m1, M1b = fit_relmse_m1b, M2 = fit_relmse_m2, M3 = fit_relmse_m3,
+  S1 = fit_relmse_s1, S4 = fit_relmse_s4,
+  `M1 prior` = fit_relmse_m1_prior, `M2 prior` = fit_relmse_m2_prior,
+  `M3 prior` = fit_relmse_m3_prior, `S1 prior` = fit_relmse_s1_prior,
+  `S4 prior` = fit_relmse_s4_prior
+)
+
+# seconds per chain, one column each for warmup and sampling
+meta_times <- lapply(meta_fits, function(fit) {
+  chain_sec <- rstan::get_elapsed_time(fit$fit)
+  tibble::tibble(chains = nrow(chain_sec), sampling_sec = sum(chain_sec),
+                 elapsed_sec = max(rowSums(chain_sec)))
+}) |>
+  dplyr::bind_rows(.id = "model") |>
+  dplyr::mutate(prior_only = grepl("prior$", model))
+
+meta_times |>
+  dplyr::mutate(sampling_min = sampling_sec / 60, elapsed_min = elapsed_sec / 60) |>
+  dplyr::select(model, chains, sampling_min, elapsed_min) |>
+  pander::pander(digits = 3, caption = "Sampling time of the meta-models in minutes.")
+
+meta_with_data <- dplyr::filter(meta_times, !prior_only)
+slowest_meta <- dplyr::slice_max(meta_with_data, elapsed_sec, n = 1, with_ties = FALSE)
+```
+
+Sampling the `r nrow(meta_with_data)` meta-models with data took `r sprintf("%.0f", sum(meta_with_data$sampling_sec) / 60)` minutes in total, summed over all chains, and `r sprintf("%.0f", sum(meta_with_data$elapsed_sec) / 60)` minutes of elapsed time when the models are fitted one after another with parallel chains. The slowest model was `r slowest_meta$model` (`r sprintf("%.0f", slowest_meta$elapsed_sec / 60)` minutes elapsed). The prior predictive models added `r sprintf("%.0f", sum(meta_times$sampling_sec[meta_times$prior_only]) / 60)` minutes of sampling time.
 
 # Session Info
 

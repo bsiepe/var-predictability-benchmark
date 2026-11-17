@@ -301,6 +301,40 @@ tibble(datasets = nrow(dataset_meta),
        machines = n_distinct(fit_times$cpu))
 ```
 
+## Summary for the manuscript
+
+The following paragraph gives the numbers reported in the estimation diagnostics of the manuscript. CPU time is the sum over all fits of all models and datasets, including every refit of the rolling-origin evaluation. It adds up the time of all cores, so it is longer than the elapsed time of the parallel run. A relMSE is undefined for a person and a model if the model or the person mean predicts all test values of an item exactly, or if an item has no scored predictions. The counts refer to person-model combinations out of sample, excluding the mean model, whose relMSE is 1 by construction. Singular fits and rank-deficient fits are counted as shares of all fits of a model in a dataset, as in the tables above.
+
+```{r}
+#| label: diagnostics-summary
+
+reason_labels <- c(zero_model = "the model predicted all test values of an item exactly",
+                   zero_reference = "the person mean predicted all test values of an item exactly",
+                   missing = "an item had no scored predictions")
+
+n_datasets <- nrow(dataset_meta)
+n_persons <- nrow(distinct(combined, dataset_id, id))
+n_failed_fits <- sum(unlist(dataset_meta$model_failures))
+
+person_models <- filter(combined, set == "oos", model != "mean")
+undefined <- filter(person_models, !is.finite(rel_mse))
+undefined_by_model <- count(undefined, model = as.character(model), sort = TRUE)
+undefined_by_reason <- count(undefined, reason_na, sort = TRUE)
+stopifnot(all(undefined$reason_na %in% names(reason_labels)))
+
+issue_shares <- function(m, issue) {
+  fit_issues |>
+    filter(model == m, type == issue) |>
+    mutate(share = n / n_fits) |>
+    pull(share)
+}
+ml_var_singular <- issue_shares("ml_var", "singular")
+var_rank_deficient <- issue_shares("var", "rank_deficient")
+stopifnot(length(ml_var_singular) == n_datasets, length(var_rank_deficient) == n_datasets)
+```
+
+Fitting all models took `r sprintf("%.0f", sum(fit_times$cpu_sec) / 60)` CPU minutes in total, on `r paste(unique(fit_times$cpu), collapse = " and ")`. Of the `r length(model_order) * n_datasets` combinations of `r length(model_order)` models and `r n_datasets` datasets, `r n_failed_fits` failed to produce predictions. For `r nrow(undefined)` of the `r nrow(person_models)` person-model combinations (`r sprintf("%.1f", 100 * nrow(undefined) / nrow(person_models))`%), no relMSE was defined, affecting `r nrow(distinct(undefined, dataset_id, id))` of `r n_persons` persons for at least one model. Most of these combinations concerned `r model_labels[match(undefined_by_model$model[1], model_order)]` (`r undefined_by_model$n[1]`), and the most frequent reason was that `r reason_labels[undefined_by_reason$reason_na[1]]` (`r undefined_by_reason$n[1]`). For mlVAR, at least 50% of the fits were singular in `r sum(ml_var_singular >= 0.5)` of `r n_datasets` datasets. Rank-deficient VAR fits occurred in `r sum(var_rank_deficient > 0)` of `r n_datasets` datasets, with a median share of `r sprintf("%.1f", 100 * median(var_rank_deficient[var_rank_deficient > 0]))`% of fits in these datasets.
+
 ## Non-Convergence
 
 ```{r}
@@ -833,21 +867,50 @@ This strong correlation suggests that the absolute performance of mlVAR is large
 
 ## Item-specific effects
 
-We first look at the raw prediction error per item. For every item, we take the median OOS RMSE across persons, in points of the scale range (items rescaled to [0, 1] and multiplied by 100), for the mean model, AR and VAR. The figure shows the 10 items with the lowest and the 10 with the highest median RMSE of the mean model. As the mean model's error is essentially the item's within-person variability, this ranking mainly reflects how much an item varies. The distance between the three points of an item shows how much the dynamic models change the raw error.
+We first look at the raw prediction error per item. For every item, we take the median OOS RMSE across persons, in points of the scale range (items rescaled to [0, 1] and multiplied by 100), for the mean model, AR and VAR. The figure shows the 10 items with the lowest and the 10 with the highest median RMSE of the mean model. As the mean model's error is essentially the item's within-person variability, this ranking mainly reflects how much an item varies. The distance between the three points of an item shows how much the dynamic models change the raw error. The two columns on the right describe the item's dataset: the median number of training observations at the first forecast origin and the median number of training observations per VAR coefficient, across the dataset's persons. The second column is the training length divided by the number of coefficients per VAR equation (number of items plus intercept), so it is small for datasets with many items and short series.
 
 ```{r}
 #| label: fig-item-rmse
 #| fig-cap: "Items with the lowest and highest median OOS RMSE of the mean model, with the RMSE of AR and VAR for comparison."
-#| fig-height: 7
-#| fig-width: 9
+#| fig-height: 7.5
+#| fig-width: 10
 
 n_extreme <- 10
 rmse_models <- c("mean", "ar", "var")
+
+# medians across the persons of a dataset, the same for all items of that dataset
+dataset_design <- features$person |>
+  summarise(n_train = median(n_train_first), obs_per_coef = median(obs_per_var_eq_par),
+            .by = dataset_id)
+
+# two text columns right of the points, each item in its row, the headers above the top row.
+# rows: y plus the table values, and the facet variable if the plot is facetted
+table_layers <- function(rows, x_pos, header_y) {
+  cells <- bind_rows(
+    mutate(rows, x = x_pos[1], label = sprintf("%.0f", n_train)),
+    mutate(rows, x = x_pos[2], label = sprintf("%.1f", obs_per_coef))
+  )
+  header_text <- tibble(x = x_pos, label = c("Training\nobs.", "Obs. per\nVAR coef."),
+                        y = header_y)
+  facet_cols <- setdiff(names(rows), c("y", "n_train", "obs_per_coef"))
+  headers <- if (length(facet_cols) > 0) {
+    cross_join(distinct(rows[facet_cols]), header_text)
+  } else {
+    header_text
+  }
+  list(
+    geom_text(data = cells, aes(x = x, y = y, label = label), inherit.aes = FALSE,
+              size = 3.5, colour = "grey20", family = "news"),
+    geom_text(data = headers, aes(x = x, y = y, label = label), inherit.aes = FALSE,
+              size = 3.5, colour = "grey20", family = "news", vjust = 0, lineheight = 0.9)
+  )
+}
 
 item_rmse <- features$item_error |>
   filter(model %in% rmse_models) |>
   summarise(rmse = 100 * median(rmse), .by = c(dataset_id, variable, model)) |>
   left_join(dataset_labels, by = "dataset_id") |>
+  left_join(dataset_design, by = "dataset_id") |>
   mutate(item = paste0(dataset, ": ", variable))
 
 rmse_rank <- item_rmse |>
@@ -862,13 +925,24 @@ item_rmse_extremes <- item_rmse |>
          model = factor(model, levels = rmse_models,
                         labels = model_labels[match(rmse_models, model_order)]))
 
+# the points use the left part of the panel, the table the right part
+rmse_range <- range(item_rmse_extremes$rmse)
+rmse_span <- diff(rmse_range)
+rmse_table_x <- rmse_range[2] + c(0.2, 0.42) * rmse_span
+
 ggplot(item_rmse_extremes, aes(x = rmse, y = item, colour = model, shape = model)) +
-  # separates the lowest from the highest items
+  # separates the lowest from the highest items, and the points from the table
   geom_hline(yintercept = n_extreme + 0.5, colour = "grey70", linewidth = 0.3) +
+  geom_vline(xintercept = rmse_range[2] + 0.08 * rmse_span, colour = "grey70", linewidth = 0.3) +
   geom_point(size = 2.5, alpha = 0.85) +
+  table_layers(distinct(item_rmse_extremes, y = item, n_train, obs_per_coef), rmse_table_x,
+               header_y = 2 * n_extreme + 0.7) +
   scale_colour_manual(values = model_palette) +
   # AR and VAR have similar colours in model_palette
   scale_shape_manual(values = c(Mean = 16, AR = 17, VAR = 15)) +
+  scale_x_continuous(breaks = scales::breaks_pretty()(rmse_range)) +
+  scale_y_discrete(expand = expansion(add = c(0.6, 2.4))) +
+  coord_cartesian(xlim = c(rmse_range[1], rmse_range[2] + 0.52 * rmse_span)) +
   labs(x = "OOS RMSE (scale points), median across persons", y = NULL, colour = NULL,
        shape = NULL) +
   theme_bs() +
@@ -920,11 +994,13 @@ n_zero <- function(m) zero_model$n[zero_model$model == m]
 
 Of the `r nrow(item_cells)` person-item combinations, the test-window MSE was zero in `r sum(item_cells$mse_mean < zero_tol, na.rm = TRUE)` for the mean model, in `r n_zero("ar")` for AR and in `r n_zero("var")` for VAR.
 
+The next figure shows, separately for AR and VAR, the 10 items with the lowest and the 10 items with the highest OOS MSE relative to the mean model. Each point is the geometric mean of the item's ratio across persons, and its colour is the item's median lag-1 autocorrelation in the training window. As in the previous figure, the columns on the right give the training length and the training observations per VAR coefficient of the item's dataset. Together, colour and columns show whether an item's ranking follows from its autocorrelation or from the amount of data per parameter in its dataset.
+
 ```{r}
 #| label: fig-item-extremes
-#| fig-cap: "The 10 items with the lowest and highest OOS MSE relative to the mean model, per contrast. Points are geometric means across persons. Colour shows the item's lag-1 autocorrelation in the training window, median across persons."
-#| fig-height: 8
-#| fig-width: 11
+#| fig-cap: "The 10 items with the lowest and highest OOS MSE relative to the mean model, per contrast, with the training length and the training observations per VAR coefficient of their dataset."
+#| fig-height: 13
+#| fig-width: 10
 
 n_extreme <- 10
 
@@ -932,19 +1008,33 @@ item_extremes <- bind_rows(
   slice_min(item_summary, ratio, n = n_extreme, with_ties = FALSE, by = contrast),
   slice_max(item_summary, ratio, n = n_extreme, with_ties = FALSE, by = contrast)
 ) |>
+  left_join(dataset_design, by = "dataset_id") |>
   # an item ranks differently per contrast, so each panel needs its own y levels.
   # lowest error at the top
   mutate(item_key = reorder(paste(item, contrast, sep = "__"), desc(ratio)))
 
+# on the log axis, the table positions are multiples of the largest ratio
+ratio_range <- range(item_extremes$ratio)
+log_span <- log10(ratio_range[2] / ratio_range[1])
+ratio_table_x <- ratio_range[2] * 10^(c(0.2, 0.42) * log_span)
+ratio_breaks_shown <- 2^(-8:8)
+ratio_breaks_shown <- ratio_breaks_shown[ratio_breaks_shown >= ratio_range[1] / 1.05 &
+                                           ratio_breaks_shown <= ratio_range[2] * 1.05]
+
 ggplot(item_extremes, aes(x = ratio, y = item_key, colour = rho1_median)) +
   geom_vline(xintercept = 1, colour = "grey50", linetype = "dashed") +
-  # separates the lowest from the highest items
+  # separates the lowest from the highest items, and the points from the table
   geom_hline(yintercept = n_extreme + 0.5, colour = "grey70", linewidth = 0.3) +
+  geom_vline(xintercept = ratio_range[2] * 10^(0.08 * log_span), colour = "grey70",
+             linewidth = 0.3) +
   geom_point(size = 2.5) +
-  scale_y_discrete(labels = \(x) sub("__.*$", "", x)) +
-  scale_x_log10(breaks = c(0.25, 0.5, 1, 2, 4)) +
+  table_layers(distinct(item_extremes, y = item_key, contrast, n_train, obs_per_coef),
+               ratio_table_x, header_y = 2 * n_extreme + 0.7) +
+  scale_y_discrete(labels = \(x) sub("__.*$", "", x), expand = expansion(add = c(0.6, 2.4))) +
+  scale_x_log10(breaks = ratio_breaks_shown) +
+  coord_cartesian(xlim = c(ratio_range[1], ratio_range[2] * 10^(0.52 * log_span))) +
   scale_colour_viridis_c(name = "Lag-1 autocorrelation\n(median)") +
-  ggh4x::facet_wrap2(~ contrast, scales = "free_y", axes = "all") +
+  ggh4x::facet_wrap2(~ contrast, ncol = 1, scales = "free_y", axes = "all") +
   labs(x = "OOS MSE relative to the mean model (log scale)", y = NULL) +
   theme_bs() +
   theme(legend.position = "bottom")
@@ -1048,7 +1138,10 @@ decomposition_tex <- c(
         "before the step, estimated with meta-model M1 (posterior median and 95\\% credible",
         "interval). Values below 1 indicate lower error after the step. $P(< 1)$: posterior",
         "probability that the step lowers the error. Improved: share of the $n$ persons with a",
-        "defined relMSE for both models whose relMSE is lower after the step."),
+        "defined relMSE for both models whose relMSE is lower after the step. Any reduction",
+        "counts as an improvement, however small, so about 50\\% are expected if two models",
+        "predict equally well. Persons with identical relMSE for both models count as not",
+        "improved."),
   "\\end{table}"
 )
 writeLines(decomposition_tex, here("output", "paper", "tbl_decomposition.tex"))
@@ -1133,6 +1226,27 @@ features$person |>
   select(dataset, n_train, rho1) |>
   knitr::kable(col.names = c("Dataset", "Training length", "Autocorrelation"))
 ```
+
+```{r}
+#| label: moderator-summary
+
+moderators <- features$person |>
+  select(dataset_id, n_train_first, rho1_train_mean)
+
+moderator_datasets <- moderators |>
+  summarise(n_train = median(n_train_first), rho1 = mean(rho1_train_mean, na.rm = TRUE),
+            .by = dataset_id)
+
+fmt_iqr <- function(x, digits) {
+  sprintf(paste0("%.", digits, "f, %.", digits, "f"), quantile(x, 0.25, na.rm = TRUE),
+          quantile(x, 0.75, na.rm = TRUE))
+}
+fmt_span <- function(x, digits) {
+  sprintf(paste0("%.", digits, "f to %.", digits, "f"), min(x, na.rm = TRUE), max(x, na.rm = TRUE))
+}
+```
+
+Across all `r nrow(moderators)` persons, the training window at the first forecast origin contained a median of `r sprintf("%g", median(moderators$n_train_first))` observations (IQR [`r fmt_iqr(moderators$n_train_first, 0)`], range `r fmt_span(moderators$n_train_first, 0)`), and the dataset medians ranged from `r fmt_span(moderator_datasets$n_train, 0)`. The mean lag-1 autocorrelation of the items in the training window was `r sprintf("%.2f", mean(moderators$rho1_train_mean, na.rm = TRUE))` on average (SD `r sprintf("%.2f", sd(moderators$rho1_train_mean, na.rm = TRUE))`, IQR [`r fmt_iqr(moderators$rho1_train_mean, 2)`]), with dataset means from `r fmt_span(moderator_datasets$rho1, 2)`. Persons with an undefined autocorrelation (n = `r sum(is.na(moderators$rho1_train_mean))`) are not part of M3.
 
 ## M2 (M1 + training length)
 

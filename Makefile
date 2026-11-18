@@ -36,7 +36,6 @@ REFERENCES   := output/paper/dataset_references.bib output/paper/dataset_citatio
 # outputs of 03_collect_results.R that downstream steps read
 COLLECTED    := output/meta/combined.rds output/analysis/lasso_mean.rds
 META_MODELS  := output/analysis/fit_relmse_m1.rds \
-				output/analysis/fit_relmse_m1b.rds \
 				output/analysis/fit_relmse_m2.rds \
 				output/analysis/fit_relmse_m3.rds \
 				output/analysis/fit_relmse_m1_prior.rds \
@@ -44,6 +43,8 @@ META_MODELS  := output/analysis/fit_relmse_m1.rds \
 				output/analysis/fit_relmse_m3_prior.rds \
 				output/analysis/fit_relmse_s1.rds \
 				output/analysis/fit_relmse_s1_prior.rds \
+				output/analysis/fit_relmse_s2.rds \
+				output/analysis/fit_relmse_s2_prior.rds \
 				output/analysis/fit_relmse_s4.rds \
 				output/analysis/fit_relmse_s4_prior.rds
 

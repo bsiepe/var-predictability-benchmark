@@ -29,7 +29,7 @@ params:
 
 # Preparation
 
-We first load all relevant packages and data.
+We first load all relevant packages and data, and define some helper functions.
 
 ```{r}
 #| label: setup
@@ -110,7 +110,7 @@ posterior_checks <- function(fit, log_y = FALSE) {
 
 All models are fitted with `refresh = 0` and `silent = 2`, so that the rendered report does not contain Stan's compilation and sampling messages.
 
-The predictive checks compare the observed response with responses simulated from the model, using each person's and dataset's estimated random effects. With a Student-t likelihood, a few simulated values are extreme, and a density plot would stretch its x-axis to include them, so that the bulk of the distribution is no longer visible. The density plots are therefore zoomed to the observed range plus a margin, without dropping any simulated values, and drawn separately per benchmark model.
+The predictive checks compare the observed response with responses simulated from the model, using each person's and dataset's estimated random effects. With a Student-t likelihood, a few simulated values are extreme, and a density plot would stretch its x-axis to include them, so that the bulk of the distribution is no longer visible. The density plots are therefore zoomed to the observed range plus a margin.
 
 As a density plot cannot show well whether a model reproduces the spread and the tails, each posterior check also compares quantiles of the simulated data with the observed ones:
 
@@ -153,7 +153,8 @@ df_meta |>
 
 
 ### Fixed-Effect for Model, Random-Effect for Dataset (M1)
-We now fit a simple meta regression model for the log relative MSE with a Student-t likelihood.
+
+We now fit the main meta-regression model for the log relative MSE with a Student-t likelihood. The location has a fixed effect for each benchmark model and random intercepts for datasets, combinations of dataset and model, and persons. The residual scale has the same structure: fixed effect for each benchmark model and random intercepts for datasets and for combinations of dataset and model. The errors of all models can thus scatter more widely in some datasets, for example because of short series or less reliable items, and a single model's errors can scatter more widely in some datasets than in others, for example those of the idiographic VAR in datasets with few observations per parameter. The scales are partially pooled in the same way as the locations. The standard deviations of the scale random effects get the same prior as the other random-effect standard deviations. A version with only a fixed scale per benchmark model is the sensitivity analysis S2.
 
 ```{r}
 #| label: meta-relmse-m1
@@ -166,16 +167,17 @@ priors_rel <- c(
 )
 # the brms default for nu, stated so that it is reported. the lognormal S1 has no nu
 priors_t <- c(priors_rel, prior(gamma(2, 0.1), class = nu))
+priors_t_scale <- c(priors_t, prior(exponential(2), class = sd, dpar = sigma))
 
 if (refit_models || !file.exists(model_path)) {
   fit_relmse_m1 <- brm(
     # no intercept: the mean model is the reference and already divided out of rel_mse,
     # so each coefficient is that model's location of log relative MSE
     bf(log(rel_mse) ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
-       sigma ~ 0 + model),
+       sigma ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model)),
     data = df_rel,
     family = student(),
-    prior = priors_t,
+    prior = priors_t_scale,
     chains = 4,
     cores = 4,
     iter = 3000,
@@ -235,81 +237,9 @@ Here are the posterior predictive checks of the model:
 posterior_checks(fit_relmse_m1)
 ```
 
-### M1 with Dataset-Specific Scales (M1b)
-
-In M1, the residual scale differs only between benchmark models. Each model's errors are thus assumed to scatter equally widely in every dataset. The item-level results suggest otherwise: the idiographic VAR, for example, scatters much more in datasets with few observations per parameter. A Student-t likelihood with very small degrees of freedom ν can absorb such differences by being both very peaked and very wide. M1b therefore adds a random intercept for each combination of dataset and model to the log residual scale, so that the scales are partially pooled in the same way as the locations. The location part and all other priors are the same as in M1. The standard deviation of the new random effect gets the same prior as the other random-effect standard deviations.
-
-If the small ν in M1 reflects such differences in scale, ν should be larger in M1b, and the predictive checks per benchmark model should fit better. If the location estimates of M1 and M1b agree, our results do not depend on how the scale is modelled.
-
-```{r}
-#| label: meta-relmse-m1b
-model_path <- here::here("output", "analysis", "fit_relmse_m1b.rds")
-
-priors_t_scale <- c(priors_t, prior(exponential(2), class = sd, dpar = sigma))
-
-if (refit_models || !file.exists(model_path)) {
-  fit_relmse_m1b <- brm(
-    bf(log(rel_mse) ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
-       sigma ~ 0 + model + (1 | dataset_id:model)),
-    data = df_rel,
-    family = student(),
-    prior = priors_t_scale,
-    chains = 4,
-    cores = 4,
-    iter = 3000,
-    warmup = 1000,
-    seed = seed,
-    refresh = 0,
-    silent = 2
-  )
-
-  saveRDS(fit_relmse_m1b, model_path)
-} else {
-  fit_relmse_m1b <- read_fit(model_path, "student")
-}
-```
-
-```{r}
-#| label: summary-relmse-m1b
-parameters::model_parameters(fit_relmse_m1b, test = "pd")
-```
-
-Posterior predictive checks of M1b:
-
-```{r}
-#| label: ppcheck-relmse-m1b
-posterior_checks(fit_relmse_m1b)
-```
-
-The next table compares ν between M1 and M1b, and then the location estimates of each benchmark model, as relMSE relative to the mean model. Both are posterior medians with 95% credible intervals.
-
-```{r}
-#| label: compare-m1-m1b
-nu_summary <- function(fit) {
-  nu <- brms::as_draws_df(fit, variable = "nu")$nu
-  sprintf("%.2f [%.2f, %.2f]", stats::median(nu), stats::quantile(nu, 0.025),
-          stats::quantile(nu, 0.975))
-}
-
-tibble::tibble(model = c("M1", "M1b"),
-               nu = c(nu_summary(fit_relmse_m1), nu_summary(fit_relmse_m1b))) |>
-  pander::pander(caption = "Degrees of freedom of the Student-t likelihood.")
-
-location_summary <- function(fit) {
-  location <- brms::fixef(fit, robust = TRUE)
-  location <- location[grepl("^model", rownames(location)), , drop = FALSE]
-  tibble::tibble(model = sub("^model", "", rownames(location)),
-                 rel_mse = sprintf("%.2f [%.2f, %.2f]", exp(location[, "Estimate"]),
-                                   exp(location[, "Q2.5"]), exp(location[, "Q97.5"])))
-}
-
-dplyr::left_join(location_summary(fit_relmse_m1), location_summary(fit_relmse_m1b),
-                 by = "model", suffix = c("_m1", "_m1b")) |>
-  pander::pander(caption = "Population-level relMSE relative to the mean model, M1 vs. M1b.")
-```
-
-
 ### M1 + Training Length by Model (M2)
+
+We now extend M1 with the log training length as a moderator of the benchmark model effects. The log training length is split into the dataset mean (between) and the person's deviation from it (within). 
 
 ```{r}
 #| label: moderator-training-length
@@ -335,10 +265,10 @@ if (refit_models || !file.exists(model_path)) {
     # one between and one within slope per model
     bf(log(rel_mse) ~ 0 + model + model:log_n_between + model:log_n_within +
          (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
-       sigma ~ 0 + model),
+       sigma ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model)),
     data = df_rel,
     family = student(),
-    prior = priors_t,
+    prior = priors_t_scale,
     chains = 4,
     cores = 4,
     iter = 3000,
@@ -384,6 +314,8 @@ posterior_checks(fit_relmse_m2)
 
 ### M2 + Autocorrelation by Model (M3)
 
+We now add the mean lag-1 autocorrelation of the items in the training window as a moderator of the benchmark model effects. Like the log training length, it is split into the dataset mean (between) and the person's deviation from it (within). The autocorrelation is undefined for persons without observed lag pairs in the training window, so we filter them out.
+
 ```{r}
 #| label: moderator-autocorrelation
 # mean lag-1 autocorrelation of the items in the training window, split like training length
@@ -407,10 +339,10 @@ if (refit_models || !file.exists(model_path)) {
     bf(log(rel_mse) ~ 0 + model + model:log_n_between + model:log_n_within +
          model:rho1_between + model:rho1_within +
          (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
-       sigma ~ 0 + model),
+       sigma ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model)),
     data = df_m3,
     family = student(),
-    prior = priors_t,
+    prior = priors_t_scale,
     chains = 4,
     cores = 4,
     iter = 3000,
@@ -456,6 +388,8 @@ posterior_checks(fit_relmse_m3)
 # Sensitivity Analyses
 
 ## Log-Normal Likelihood (S1)
+
+In this sensitivity analysis, we fit the same model as M1 but with a lognormal likelihood instead of a Student-t likelihood. The lognormal likelihood is more restrictive in the tails, so it should not be able to absorb extreme values as well as the Student-t likelihood does. 
 
 ```{r}
 #| label: meta-relmse-s1
@@ -510,8 +444,93 @@ Posterior predictive checks of S1, on the log scale. Compared with the checks of
 posterior_checks(fit_relmse_s1, log_y = TRUE)
 ```
 
+## Constant Scale per Model (S2)
+
+S2 is M1 without the random intercepts in the residual scale: each benchmark model has one residual scale for all datasets. It was the main model of an earlier version of the analysis. Its degrees of freedom ν were very small, which a Student-t likelihood can use to absorb differences in scale between datasets. Comparing S2 with M1 shows how much the dataset-specific scales change ν and the location estimates.
+
+```{r}
+#| label: meta-relmse-s2
+model_path <- here::here("output", "analysis", "fit_relmse_s2.rds")
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_s2 <- brm(
+    bf(log(rel_mse) ~ 0 + model + (1 | dataset_id) + (1 | dataset_id:model) + (1 | unique_id),
+       sigma ~ 0 + model),
+    data = df_rel,
+    family = student(),
+    prior = priors_t,
+    chains = 4,
+    cores = 4,
+    iter = 3000,
+    warmup = 1000,
+    seed = seed,
+    refresh = 0,
+    silent = 2
+  )
+
+  saveRDS(fit_relmse_s2, model_path)
+} else {
+  fit_relmse_s2 <- read_fit(model_path, "student")
+}
+```
+
+```{r}
+#| label: prior-predictive-s2
+model_path <- here::here("output", "analysis", "fit_relmse_s2_prior.rds")
+
+if (refit_models || !file.exists(model_path)) {
+  fit_relmse_s2_prior <- update(fit_relmse_s2, sample_prior = "only", seed = seed,
+    refresh = 0, silent = 2)
+  saveRDS(fit_relmse_s2_prior, model_path)
+} else {
+  fit_relmse_s2_prior <- read_fit(model_path, "student")
+}
+
+prior_check(fit_relmse_s2_prior)
+```
+
+```{r}
+#| label: summary-relmse-s2
+parameters::model_parameters(fit_relmse_s2, test = "pd")
+```
+
+Posterior predictive checks of S2:
+
+```{r}
+#| label: ppcheck-relmse-s2
+posterior_checks(fit_relmse_s2)
+```
+
+The next two tables compare ν between M1 and S2, and then the location estimates of each benchmark model as relMSE relative to the mean model. Both are posterior medians with 95% credible intervals.
+
+```{r}
+#| label: compare-m1-s2
+nu_summary <- function(fit) {
+  nu <- brms::as_draws_df(fit, variable = "nu")$nu
+  sprintf("%.2f [%.2f, %.2f]", stats::median(nu), stats::quantile(nu, 0.025),
+          stats::quantile(nu, 0.975))
+}
+
+tibble::tibble(model = c("M1", "S2"),
+               nu = c(nu_summary(fit_relmse_m1), nu_summary(fit_relmse_s2))) |>
+  pander::pander(caption = "Degrees of freedom of the Student-t likelihood.")
+
+location_summary <- function(fit) {
+  location <- brms::fixef(fit, robust = TRUE)
+  location <- location[grepl("^model", rownames(location)), , drop = FALSE]
+  tibble::tibble(model = sub("^model", "", rownames(location)),
+                 rel_mse = sprintf("%.2f [%.2f, %.2f]", exp(location[, "Estimate"]),
+                                   exp(location[, "Q2.5"]), exp(location[, "Q97.5"])))
+}
+
+dplyr::left_join(location_summary(fit_relmse_m1), location_summary(fit_relmse_s2),
+                 by = "model", suffix = c("_m1", "_s2")) |>
+  pander::pander(caption = "Population-level relMSE relative to the mean model, M1 vs. S2.")
+```
+
 ## Raw-Scale MSE (S4)
 
+In this sensitivity analysis, we fit the same model as M1 but with the raw MSE instead of the relative MSE. The raw MSE is on the [0, 1] scale, so its log is around -3. The priors are adjusted accordingly. The mean model is included in the data, so that it is modelled instead of divided out.
 Here, we increase iterations due to some convergence issues. 
 
 ```{r}
@@ -581,6 +600,8 @@ posterior_checks(fit_relmse_s4)
 
 # Convergence Diagnostics
 
+Here we check the convergence of the meta-regression models. We report the maximum R-hat, minimum effective sample size (bulk and tail), and the number of divergent transitions for each model. The person-level effects are too many to list, so we focus on population-level and variance parameters only.
+
 ```{r}
 #| label: convergence
 # population-level and variance parameters only. the person-level effects are too many to list
@@ -596,8 +617,8 @@ convergence <- function(fit) {
   )
 }
 
-list(M1 = fit_relmse_m1, M1b = fit_relmse_m1b, M2 = fit_relmse_m2, M3 = fit_relmse_m3,
-     S1 = fit_relmse_s1, S4 = fit_relmse_s4) |>
+list(M1 = fit_relmse_m1, M2 = fit_relmse_m2, M3 = fit_relmse_m3,
+     S1 = fit_relmse_s1, S2 = fit_relmse_s2, S4 = fit_relmse_s4) |>
   lapply(convergence) |>
   dplyr::bind_rows(.id = "model") |>
   pander::pander(digits = 3, caption = "Convergence diagnostics per fitted model.")
@@ -610,11 +631,11 @@ Stan stores the warmup and sampling time of each chain in the fitted model, so t
 ```{r}
 #| label: meta-times
 meta_fits <- list(
-  M1 = fit_relmse_m1, M1b = fit_relmse_m1b, M2 = fit_relmse_m2, M3 = fit_relmse_m3,
-  S1 = fit_relmse_s1, S4 = fit_relmse_s4,
+  M1 = fit_relmse_m1, M2 = fit_relmse_m2, M3 = fit_relmse_m3,
+  S1 = fit_relmse_s1, S2 = fit_relmse_s2, S4 = fit_relmse_s4,
   `M1 prior` = fit_relmse_m1_prior, `M2 prior` = fit_relmse_m2_prior,
   `M3 prior` = fit_relmse_m3_prior, `S1 prior` = fit_relmse_s1_prior,
-  `S4 prior` = fit_relmse_s4_prior
+  `S2 prior` = fit_relmse_s2_prior, `S4 prior` = fit_relmse_s4_prior
 )
 
 # seconds per chain, one column each for warmup and sampling

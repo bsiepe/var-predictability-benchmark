@@ -81,6 +81,7 @@ fit_m1 <- readRDS(here("output", "analysis", "fit_relmse_m1.rds"))
 fit_m2 <- readRDS(here("output", "analysis", "fit_relmse_m2.rds"))
 fit_m3 <- readRDS(here("output", "analysis", "fit_relmse_m3.rds"))
 fit_s1 <- readRDS(here("output", "analysis", "fit_relmse_s1.rds"))
+fit_s2 <- readRDS(here("output", "analysis", "fit_relmse_s2.rds"))
 fit_s4 <- readRDS(here("output", "analysis", "fit_relmse_s4.rds"))
 
 meta_order <- model_order[model_order != "mean"]
@@ -666,7 +667,7 @@ We estimated a student-t location scale meta-model with only the model as a pred
 
 ```{r}
 #| label: tbl-m1
-#| tbl-cap: "M1: population-level OOS MSE relative to the mean model (posterior median and 95% CrI), the posterior probability that it is below 1, and the residual scale of log relative MSE across persons."
+#| tbl-cap: "M1: population-level OOS MSE relative to the mean model (posterior median and 95% CrI), the posterior probability that it is below 1, and the residual scale of log relative MSE across persons in a typical dataset."
 
 m1_location <- coef_draws(fit_m1, "b_model") |>
   mutate(rel_mse = exp(value)) |>
@@ -737,18 +738,22 @@ ggplot(m1_forest, aes(x = rel_mse, y = dataset, colour = model)) +
 ggsave("fig_m1_datasets.pdf", width = 9, height = 10, dpi = 300, path = here("figures"))
 ```
 
+The next table gives the standard deviations of M1's random intercepts. The first three belong to the location of log relMSE: datasets, combinations of dataset and model, and persons. The last two belong to the log residual scale: how much the spread of all models' errors differs between datasets, and how much the spread of a single model's errors differs beyond that. Each standard deviation is also shown as the factor exp(SD). For the location, this is how much a typical dataset or person differs from the average on the relMSE scale. For the residual scale, it is how much wider or narrower a typical dataset, or a typical combination of dataset and model, scatters than the average.
+
 ```{r}
 #| label: tbl-m1-variance
-#| tbl-cap: "M1: standard deviations of the random intercepts of log relative MSE (posterior median and 95% CrI), and the corresponding factor exp(SD) on the relative MSE scale. Dataset × model: how much a model's dataset-specific effect varies beyond the dataset's overall level. Whether the model ranking changes between datasets also depends on the gaps between models (see the dataset-level figure)."
+#| tbl-cap: "M1: standard deviations of the random intercepts (posterior median and 95% CrI) and the corresponding factor exp(SD)."
 
-re_labels <- c("dataset_id" = "Dataset", "dataset_id:model" = "Dataset × model",
-               "unique_id" = "Person")
+re_labels <- c("sd_dataset_id__Intercept" = "Location: dataset",
+               "sd_dataset_id:model__Intercept" = "Location: dataset × model",
+               "sd_unique_id__Intercept" = "Location: person",
+               "sd_dataset_id__sigma_Intercept" = "Residual scale: dataset",
+               "sd_dataset_id:model__sigma_Intercept" = "Residual scale: dataset × model")
 
 re_sd <- posterior::as_draws_df(fit_m1, variable = "^sd_", regex = TRUE) |>
   as_tibble() |>
   select(starts_with("sd_")) |>
-  pivot_longer(everything(), names_to = "term", values_to = "sd") |>
-  mutate(term = sub("^sd_(.*)__Intercept$", "\\1", term))
+  pivot_longer(everything(), names_to = "term", values_to = "sd")
 stopifnot(setequal(unique(re_sd$term), names(re_labels)))
 
 re_sd |>
@@ -1500,11 +1505,11 @@ ggplot(pooling, aes(x = n_train_first, y = ratio)) +
 
 # Sensitivity analyses
 
-S1 replaces the Student-t likelihood of M1 with a lognormal likelihood on relative MSE. S4 models the log geometric mean of the raw MSE across items instead of relative MSE and includes the mean model, so its estimates are expressed relative to the mean model's estimate.
+S1 replaces the Student-t likelihood of M1 with a lognormal likelihood on relative MSE. S2 keeps the Student-t likelihood but has one residual scale per benchmark model for all datasets, without M1's random intercept for the scale. S4 models the log geometric mean of the raw MSE across items instead of relative MSE and includes the mean model, so its estimates are expressed relative to the mean model's estimate.
 
 ```{r}
 #| label: tbl-sensitivity
-#| tbl-cap: "Population-level OOS MSE relative to the mean model (posterior median and 95% CrI) in the main model M1 and the sensitivity models S1 (lognormal likelihood) and S4 (raw-scale MSE, ratio to the mean model's estimate)."
+#| tbl-cap: "Population-level OOS MSE relative to the mean model (posterior median and 95% CrI) in the main model M1 and the sensitivity models S1, S2 and S4."
 
 # exp(b) is the population-level relative MSE. a model that includes the mean model (S4) is
 # expressed relative to it within each draw
@@ -1518,13 +1523,14 @@ relative_to_mean <- function(fit) {
   summarise(draws, estimate = fmt_ci(exp(value)), .by = model)
 }
 
-list(m1 = fit_m1, s1 = fit_s1, s4 = fit_s4) |>
+list(m1 = fit_m1, s1 = fit_s1, s2 = fit_s2, s4 = fit_s4) |>
   lapply(relative_to_mean) |>
   bind_rows(.id = "fit") |>
   pivot_wider(names_from = fit, values_from = estimate) |>
   mutate(model = factor(model, levels = meta_order, labels = meta_labels)) |>
   arrange(model) |>
-  select(model, m1, s1, s4) |>
-  knitr::kable(col.names = c("Model", "M1 (main)", "S1: lognormal", "S4: raw-scale MSE"))
+  select(model, m1, s1, s2, s4) |>
+  knitr::kable(col.names = c("Model", "M1 (main)", "S1: lognormal", "S2: constant scale",
+                             "S4: raw-scale MSE"))
 ```
 

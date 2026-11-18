@@ -1,0 +1,203 @@
+nohup: ignoring input
+quarto render scripts/04_meta_regression.qmd -P refit_models:true
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+[31m
+
+processing file: 04_meta_regression.qmd
+[39m  |                                                  |                                          |   0%  |                                                  |.                                         |   2%                              |                                                  |.                                         |   3% [setup]                      |                                                  |..                                        |   5%                              |                                                  |...                                       |   7% [create-unique-id]           |                                                  |...                                       |   8%                              |                                                  |....                                      |  10% [data-relative]              |                                                  |.....                                     |  11%                              |                                                  |......                                    |  13% [excluded-relative]          |                                                  |......                                    |  15%                              |                                                  |.......                                   |  16% [meta-relmse-m1]             |                                                  |........                                  |  18%                              |                                                  |........                                  |  20% [priors-relmse-m1]           |                                                  |.........                                 |  21%                              |                                                  |..........                                |  23% [prior-predictive-m1]        |                                                  |..........                                |  25%                              |                                                  |...........                               |  26% [summary-relmse-m1]          |                                                  |............                              |  28%                              |                                                  |............                              |  30% [traceplot-relmse-m1]        |                                                  |.............                             |  31%                              |                                                  |..............                            |  33% [ppcheck-relmse-m1]          |                                                  |..............                            |  34%                              |                                                  |...............                           |  36% [moderator-training-length]  |                                                  |................                          |  38%                              |                                                  |.................                         |  39% [meta-relmse-m2]             |                                                  |.................                         |  41%                              |                                                  |..................                        |  43% [prior-predictive-m2]        |                                                  |...................                       |  44%                              |                                                  |...................                       |  46% [summary-relmse-m2]          |                                                  |....................                      |  48%                              |                                                  |.....................                     |  49% [ppcheck-relmse-m2]          |                                                  |.....................                     |  51%                              |                                                  |......................                    |  52% [moderator-autocorrelation]  |                                                  |.......................                   |  54%                              |                                                  |.......................                   |  56% [meta-relmse-m3]             |                                                  |........................                  |  57%                              |                                                  |.........................                 |  59% [prior-predictive-m3]        |                                                  |.........................                 |  61%                              |                                                  |..........................                |  62% [summary-relmse-m3]          |                                                  |...........................               |  64%                              |                                                  |............................              |  66% [ppcheck-relmse-m3]          |                                                  |............................              |  67%                              |                                                  |.............................             |  69% [meta-relmse-s1]             |                                                  |..............................            |  70%                              |                                                  |..............................            |  72% [prior-predictive-s1]        |                                                  |...............................           |  74%                              |                                                  |................................          |  75% [summary-relmse-s1]          |                                                  |................................          |  77%                              |                                                  |.................................         |  79% [ppcheck-relmse-s1]          |                                                  |..................................        |  80%                              |                                                  |..................................        |  82% [meta-relmse-s4]             |                                                  |...................................       |  84%                              |                                                  |....................................      |  85% [prior-predictive-s4]        |                                                  |....................................      |  87%                              |                                                  |.....................................     |  89% [summary-relmse-s4]          |                                                  |......................................    |  90%                              |                                                  |.......................................   |  92% [ppcheck-relmse-s4]          |                                                  |.......................................   |  93%                              |                                                  |........................................  |  95% [convergence]                |                                                  |......................................... |  97%                              |                                                  |......................................... |  98% [session-info]               |                                                  |..........................................| 100%                                                                                                                                                  
+[31moutput file: 04_meta_regression.knit.md
+
+[39m[31mFehler beim Beenden von parallel: nicht alle Kindprozesse konnten beendet
+werden
+[39m[1mpandoc [22m
+  to: html
+  output-file: 04_meta_regression.html
+  standalone: true
+  embed-resources: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  toc: true
+  number-sections: true
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  title: VAR Predictability Benchmark
+  subtitle: Meta Regression
+  author:
+    - name: Björn S. Siepe
+      orcid: 0000-0002-9558-4648
+      affiliations: University of Marburg
+  date: '`r Sys.Date()`'
+  theme: cosmo
+  code-summary: Show the code
+  
+Output created: 04_meta_regression.html
+
+Rscript scripts/export_references.R
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+here() starts at /home/bjoern/projects/var-predictability-benchmark
+
+Attache Paket: ‘dplyr’
+
+Die folgenden Objekte sind maskiert von ‘package:stats’:
+
+    filter, lag
+
+Die folgenden Objekte sind maskiert von ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+wrote 23 references for 20 of 20 datasets to /home/bjoern/projects/var-predictability-benchmark/output/paper
+quarto render scripts/05_results.qmd
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+[31m
+
+processing file: 05_results.qmd
+[39m  |                                                 |                                         |   0%  |                                                 |.                                        |   1%                               |                                                 |.                                        |   3% [setup]                       |                                                 |..                                       |   4%                               |                                                 |..                                       |   5% [setup-meta]                  |                                                 |...                                      |   7%                               |                                                 |...                                      |   8% [tbl-datasets]                |                                                 |....                                     |  10%                               |                                                 |....                                     |  11% [tbl-datasets-latex]          |                                                 |.....                                    |  12%                               |                                                 |......                                   |  14% [sample-totals]               |                                                 |......                                   |  15%                               |                                                 |.......                                  |  16% [tbl-exclusions]              |                                                 |.......                                  |  18%                               |                                                 |........                                 |  19% [tbl-estimation-summary]      |                                                 |........                                 |  21%                               |                                                 |.........                                |  22% [estimation-overview]         |                                                 |..........                               |  23%                               |                                                 |..........                               |  25% [tbl-nonconvergence]          |                                                 |...........                              |  26%                               |                                                 |...........                              |  27% [tbl-exclusions-relmse]       |                                                 |............                             |  29%                               |                                                 |............                             |  30% [tbl-out-of-scale]            |                                                 |.............                            |  32%                               |                                                 |.............                            |  33% [computation-machine]         |                                                 |..............                           |  34%                               |                                                 |...............                          |  36% [tbl-performance]             |                                                 |...............                          |  37%                               |                                                 |................                         |  38% [performance-best-model]      |                                                 |................                         |  40%                               |                                                 |.................                        |  41% [tbl-performance-latex]       |                                                 |.................                        |  42%                               |                                                 |..................                       |  44% [fig-relmse-ladder]           |                                                 |...................                      |  45%                               |                                                 |...................                      |  47% [tbl-m1]                      |                                                 |....................                     |  48%                               |                                                 |....................                     |  49% [fig-m1-datasets]             |                                                 |.....................                    |  51%                               |                                                 |.....................                    |  52% [tbl-m1-variance]             |                                                 |......................                   |  53%                               |                                                 |......................                   |  55% [fig-gallery]                 |                                                 |.......................                  |  56%                               |                                                 |........................                 |  58% [fig-absolute-relative]       |                                                 |........................                 |  59%                               |                                                 |.........................                |  60% [fig-item-rmse]               |                                                 |.........................                |  62%                               |                                                 |..........................               |  63% [item-ratios]                 |                                                 |..........................               |  64%                               |                                                 |...........................              |  66% [item-zero-mse]               |                                                 |............................             |  67%                               |                                                 |............................             |  68% [fig-item-extremes]           |                                                 |.............................            |  70%                               |                                                 |.............................            |  71% [tbl-m1-steps]                |                                                 |..............................           |  73%                               |                                                 |..............................           |  74% [tbl-m1-steps-latex]          |                                                 |...............................          |  75%                               |                                                 |...............................          |  77% [fig-dominance]               |                                                 |................................         |  78%                               |                                                 |.................................        |  79% [tbl-moderator-descriptives]  |                                                 |.................................        |  81%                               |                                                 |..................................       |  82% [tbl-m2-moderators]           |                                                 |..................................       |  84%                               |                                                 |...................................      |  85% [tbl-m3-moderators]           |                                                 |...................................      |  86%                               |                                                 |....................................     |  88% [tbl-moderator-contrasts]     |                                                 |.....................................    |  89%                               |                                                 |.....................................    |  90% [fig-cross-dynamics]          |                                                 |......................................   |  92%                               |                                                 |......................................   |  93% [fig-shrinkage]               |                                                 |.......................................  |  95%                               |                                                 |.......................................  |  96% [fig-pooling-length]          |                                                 |........................................ |  97%                               |                                                 |........................................ |  99% [tbl-sensitivity]             |                                                 |.........................................| 100%                                                                                                                                                    
+[31moutput file: 05_results.knit.md
+
+[39m[1mpandoc [22m
+  to: html
+  output-file: 05_results.html
+  standalone: true
+  embed-resources: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  toc: true
+  number-sections: true
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  title: VAR Predictability Benchmark
+  subtitle: Results
+  author:
+    - name: Björn S. Siepe
+      orcid: 0000-0002-9558-4648
+      affiliations: University of Marburg
+  date: '`r Sys.Date()`'
+  knitr:
+    opts_chunk:
+      fig.showtext: true
+  theme: cosmo
+  code-summary: Show the code
+  
+Output created: 05_results.html
+
+quarto render scripts/01_descriptives.qmd
+The following package(s) have broken symlinks into the cache:
+- boot
+- class
+- cluster
+- codetools
+- foreign
+- KernSmooth
+- lattice
+- MASS
+- Matrix
+- mgcv
+- nlme
+- nnet
+- rpart
+- spatial
+- survival
+Use `]8;;x-r-run:renv::repair()renv::repair()]8;;` to try and reinstall these packages.
+
+[31m
+
+processing file: 01_descriptives.qmd
+[39m  |                                                          |                                                  |   0%  |                                                          |.....                                             |   9%                      |                                                          |.........                                         |  18% [unnamed-chunk-1]    |                                                          |..............                                    |  27%                      |                                                          |..................                                |  36% [tbl-design]         |                                                          |.......................                           |  45%                      |                                                          |...........................                       |  55% [tbl-items]          |                                                          |................................                  |  64%                      |                                                          |....................................              |  73% [fig-series-length]  |                                                          |.........................................         |  82%                      |                                                          |.............................................     |  91% [fig-missingness]    |                                                          |..................................................| 100%                                                                                                                                  
+[31moutput file: 01_descriptives.knit.md
+
+[39m[1mpandoc [22m
+  to: html
+  output-file: 01_descriptives.html
+  standalone: true
+  embed-resources: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  toc: true
+  number-sections: true
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  title: VAR Predictability Benchmark
+  subtitle: Descriptives
+  author:
+    - name: Björn S. Siepe
+      orcid: 0000-0002-9558-4648
+      affiliations: University of Marburg
+  date: '`r Sys.Date()`'
+  knitr:
+    opts_chunk:
+      fig.showtext: true
+  theme: cosmo
+  code-summary: Show the code
+  
+Output created: 01_descriptives.html
+
